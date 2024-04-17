@@ -1,0 +1,143 @@
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f5f5f5;
+}
+
+header {
+    text-align: center;
+    padding: 20px;
+    background-color: #007bff;
+    color: #fff;
+    width: 100%;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    z-index: 1000;
+
+}
+
+header>h1 {
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+.buttons-container {
+    margin-top: 10px;
+}
+
+button {
+    margin: 0 5px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    background-color: #007bff;
+    color: #fff;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.disabled {
+    opacity: 0.5;
+    /* Reduz a opacidade para indicar que o botão está desabilitado */
+    cursor: not-allowed;
+    /* Altera o cursor para indicar que o botão não está disponível para interação */
+    pointer-events: none;
+    /* Desativa eventos de mouse no botão */
+}
+
+
+.container {
+    text-align: center;
+    padding: 20px;
+    border-radius: 10px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    transition: opacity 0.3s ease;
+}
+
+.container-blurred {
+    opacity: 0.2;
+}
+
+.cell {
+    display: inline-block;
+    min-width: 100px;
+    padding: 10px;
+    margin: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    background-color: #f0f0f0;
+    position: relative;
+}
+
+.cell-name {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.count {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.key-indicator {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #007bff;
+    color: #ffffff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+}
+
+#total-counter {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+footer {
+    position: absolute;
+    font-size: 12px;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    padding: 10px 0;
+    background-color: #333;
+    color: #faebd7;
+}
+
+.subtitle {
+    font-size: 1rem;
+    margin-top: 0;
+}
+
+.attention-message {
+    font-size: 14px;
+    margin-top: 350px;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    color: #f95959;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 80%;
+    position: absolute;
+    display: none;
+    justify-content: center;
+    align-items: center;
+
+}

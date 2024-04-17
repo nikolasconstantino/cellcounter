@@ -1,0 +1,300 @@
+<!--
+ * @brief		Contador de Células HTML
+ * @author		Nikolas Rodrigues Constantino
+ * @copyright	(c) Nikolas Rodrigues Constantino
+ * @license		
+ * @package		Contador de Células - Hematologia
+ * @since		13 Apr 2024
+ * @version     1.0.1 build 13/04/2024
+ -->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Células</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>Contador de Células</h1>
+        <!--   <p class="subtitle">células sanguíneas</p>-->
+    </header>
+    <div class="container">
+
+        <div id="total-counter">Total: <span id="total">0</span></div>
+
+        <div class="cell" data-key="h">
+            <div class="cell-name">Segmentado</div>
+            <div class="key-indicator">H</div>
+            <div class="count" id="count-h">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('h')">-</button>
+                <button onclick="incrementCount('h')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="g">
+            <div class="cell-name">Bastonete</div>
+            <div class="key-indicator">G</div>
+            <div class="count" id="count-g">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('g')">-</button>
+                <button onclick="incrementCount('g')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="j">
+            <div class="cell-name">Linfócito</div>
+            <div class="key-indicator">J</div>
+            <div class="count" id="count-j">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('j')">-</button>
+                <button onclick="incrementCount('j')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="l">
+            <div class="cell-name">Atípico</div>
+            <div class="key-indicator">L</div>
+            <div class="count" id="count-l">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('l')">-</button>
+                <button onclick="incrementCount('l')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="k">
+            <div class="cell-name">Monócito</div>
+            <div class="key-indicator">K</div>
+            <div class="count" id="count-k">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('k')">-</button>
+                <button onclick="incrementCount('k')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="e">
+            <div class="cell-name">Plasmócito</div>
+            <div class="key-indicator">E</div>
+            <div class="count" id="count-e">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('e')">-</button>
+                <button onclick="incrementCount('e')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="a">
+            <div class="cell-name">Basófilo</div>
+            <div class="key-indicator">A</div>
+            <div class="count" id="count-a">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('a')">-</button>
+                <button onclick="incrementCount('a')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="s">
+            <div class="cell-name">Eosinófilo</div>
+            <div class="key-indicator">S</div>
+            <div class="count" id="count-s">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('s')">-</button>
+                <button onclick="incrementCount('s')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="t">
+            <div class="cell-name">Promielocito</div>
+            <div class="key-indicator">T</div>
+            <div class="count" id="count-t">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('t')">-</button>
+                <button onclick="incrementCount('t')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="f">
+            <div class="cell-name">Metamielocito</div>
+            <div class="key-indicator">F</div>
+            <div class="count" id="count-f">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('f')">-</button>
+                <button onclick="incrementCount('f')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="d">
+            <div class="cell-name">Mielocito</div>
+            <div class="key-indicator">D</div>
+            <div class="count" id="count-d">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('d')">-</button>
+                <button onclick="incrementCount('d')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="r">
+            <div class="cell-name">Blasto</div>
+            <div class="key-indicator">R</div>
+            <div class="count" id="count-r">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('r')">-</button>
+                <button onclick="incrementCount('r')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="q">
+            <div class="cell-name">Outras</div>
+            <div class="key-indicator">Q</div>
+            <div class="count" id="count-q">0</div>
+            <div class="buttons-container">
+                <button onclick="decrementCount('q')">-</button>
+                <button onclick="incrementCount('q')">+</button>
+            </div>
+        </div>
+
+        <div class="cell" data-key="p">
+            <div class="cell-name">Eritroblasto</div>
+            <div class="key-indicator">P</div>
+            <div id="eritro-count" class="count count-p">0</div>
+            <div class="buttons-container">
+                <button class="disabled" onclick="decrementCount('p')">-</button>
+                <button class="disabled" onclick="incrementCount('p')">+</button>
+            </div>
+        </div>
+
+
+        <button onclick="location.reload()">Reiniciar Contagem</button>
+    </div>
+
+    <div id="focus-message" class="attention-message"><b>ATENÇÃO!</b> &nbsp; a janela do navegador precisa estar em foco
+        para que a contagem funcione corretamente</div>
+
+    <div id="specific-count" style="display: none;">0</div>
+
+    <footer>
+        Desenvolvido por Nikolas R. Constantino
+    </footer>
+
+    <script>
+        let totalCount = 0;
+        let contagemEritroblasto = 0;
+        const cellMapping = {
+            'q': 'count-q',
+            'w': 'count-w',
+            'e': 'count-e',
+            'r': 'count-r',
+            't': 'count-t',
+            'y': 'count-y',
+            'u': 'count-u',
+            'i': 'count-i',
+            'o': 'count-o',
+            'p': 'count-p',
+            'd': 'count-d',
+            'f': 'count-f',
+            'g': 'count-g',
+            'h': 'count-h',
+            's': 'count-s',
+            'j': 'count-j',
+            'l': 'count-l',
+            'k': 'count-k',
+            'a': 'count-a'
+        };
+        document.addEventListener('keydown', function (event) {
+            const key = event.key.toLowerCase();
+            //se a tecla for "p", conta apenas eritroblasto
+            if (key === 'p') {
+                contagemEritroblasto++;
+                document.getElementById('specific-count').textContent = contagemEritroblasto;
+                document.getElementById('eritro-count').textContent = contagemEritroblasto;
+            }
+
+            const countId = cellMapping[key];
+            const countElement = document.getElementById(countId);
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent, 10) + 1;
+                countElement.textContent = currentCount;
+                totalCount++;
+
+
+                document.getElementById('total').textContent = totalCount;
+                if (totalCount === 100) {
+                    document.getElementById('total-counter').style.color = 'red';
+                    alert('Você já contou 100 células!');
+                }
+            }
+        });
+        function resetCount() {
+            totalCount = 0;
+            contagemEritroblasto = 0;
+            document.getElementById('total').textContent = totalCount;
+            for (const key in cellMapping) {
+                const countId = cellMapping[key];
+                document.getElementById(countId).textContent = '0';
+            }
+            document.getElementById('total-counter').style.color = 'black';
+            document.getElementById('specific-count').textContent = '0';
+        }
+
+        //Detecta quando a janela não está em foco e exibe a mensagem
+        window.addEventListener('blur', function () {
+            document.getElementById('focus-message').style.display = 'flex';
+            document.querySelector('.container').classList.add('container-blurred')
+        }
+        );
+
+        //Detecta quando a janela está em foco e esconde a mensagem
+        window.addEventListener('focus', function () {
+            document.getElementById('focus-message').style.display = 'none';
+            document.querySelector('.container').classList.remove('container-blurred')
+        }
+        );
+
+        //exibe alerta ao tentar recarregar a página
+        window.addEventListener('beforeunload',
+            function (event) {
+                const confirmationMessage = 'A contagem de células será perdida. Deseja continuar?';
+                event.returnValue = confirmationMessage;
+
+            }
+        )
+
+        function incrementCount(key) {
+            const countElement = document.getElementById(cellMapping[key]);
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent, 10) + 1;
+                countElement.textContent = currentCount;
+                if (key !== 'p') {
+                    updateTotalCount(1); // Adiciona ao total apenas se não for 's'
+                }
+            }
+        }
+
+        function decrementCount(key) {
+            const countElement = document.getElementById(cellMapping[key]);
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent, 10);
+                if (currentCount > 0) {
+                    countElement.textContent = currentCount - 1;
+                    if (key !== 'p') {
+                        updateTotalCount(-1); // Subtrai do total apenas se não for 's'
+                    }
+                }
+            }
+        }
+
+        function updateTotalCount(value) {
+            totalCount += value;
+            document.getElementById('total').textContent = totalCount;
+
+        }
+
+    </script>
+
+</body>
+
+</html>
