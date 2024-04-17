@@ -8,6 +8,29 @@ body {
     background-color: #f5f5f5;
 }
 
+/* Estilos para a mensagem de aviso */
+#warning-message {
+    display: none;
+    text-align: center;
+    background-color: #ffcccc;
+    color: #333;
+    padding: 10px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+/* Aplicar a exibição da mensagem apenas em telas pequenas */
+@media (max-width: 767px) {
+    #warning-message {
+        display: block;
+    }
+
+    /* Ocultar o conteúdo principal */
+    body>*:not(#warning-message) {
+        display: none;
+    }
+}
+
 header {
     text-align: center;
     padding: 20px;
