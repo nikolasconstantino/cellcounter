@@ -34,14 +34,13 @@ body {
 header {
     text-align: center;
     padding: 20px;
-    background-color: #007bff;
+    background-color: #333;
     color: #fff;
     width: 100%;
     box-sizing: border-box;
     position: fixed;
     top: 0;
     z-index: 1000;
-
 }
 
 
@@ -56,13 +55,21 @@ button {
     border: none;
     cursor: pointer;
     font-size: 16px;
-    background-color: #007bff;
+    background-color: #333;
     color: #fff;
     transition: background-color 0.3s ease;
 }
 
 button:hover {
-    background-color: #0056b3;
+    background-color: #333;
+}
+
+.button-add {
+    background-color: #4F6F52;
+}
+
+.button-rem {
+    background-color: #A25772;
 }
 
 .disabled {
@@ -78,6 +85,7 @@ button:hover {
 .container {
     text-align: center;
     padding: 20px;
+    flex-direction: column;
     border-radius: 10px;
     background-color: #ffffff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -90,7 +98,8 @@ button:hover {
 }
 
 .cell {
-    display: inline-block;
+    display: inline-flex;
+    flex-direction: column;
     min-width: 100px;
     padding: 10px;
     margin: 10px;
@@ -116,7 +125,7 @@ button:hover {
     top: -20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: #007bff;
+    background-color: #333;
     color: #ffffff;
     padding: 5px 10px;
     border-radius: 5px;
