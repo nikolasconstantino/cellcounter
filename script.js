@@ -21,6 +21,12 @@ const cellMapping = {
     'k': 'count-k',
     'a': 'count-a'
 };
+
+// som de finalização
+var finishSound = new Audio('sounds/finish.mp3');
+
+
+
 document.addEventListener('keydown', function (event) {
     const key = event.key.toLowerCase();
     //se a tecla for "p", conta apenas eritroblasto
@@ -41,6 +47,7 @@ document.addEventListener('keydown', function (event) {
         document.getElementById('total').textContent = totalCount;
         if (totalCount === 100) {
             document.getElementById('total-counter').style.color = 'red';
+            finishSound.play(); // toca o som de finalização
             alert('Você já contou 100 células!');
         }
     }
