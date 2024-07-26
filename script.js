@@ -25,11 +25,9 @@ const cellMapping = {
 // som de finalização
 var finishSound = new Audio('sounds/finish.mp3');
 
-
-
 document.addEventListener('keydown', function (event) {
     const key = event.key.toLowerCase();
-    //se a tecla for "p", conta apenas eritroblasto
+    // se a tecla for "p", conta apenas eritroblasto
     if (key === 'p') {
         contagemEritroblasto++;
         document.getElementById('specific-count').textContent = contagemEritroblasto;
@@ -43,15 +41,20 @@ document.addEventListener('keydown', function (event) {
         countElement.textContent = currentCount;
         totalCount++;
 
-
         document.getElementById('total').textContent = totalCount;
         if (totalCount === 100) {
             document.getElementById('total-counter').style.color = 'red';
             finishSound.play(); // toca o som de finalização
             alert('Você já contou 100 células!');
         }
+
+        // Adicionar animação
+        const cellElement = countElement.closest('.cell');
+        cellElement.classList.add('animate');
+        setTimeout(() => cellElement.classList.remove('animate'), 300); // 300ms igual à duração da animação
     }
 });
+
 function resetCount() {
     totalCount = 0;
     contagemEritroblasto = 0;
@@ -64,28 +67,23 @@ function resetCount() {
     document.getElementById('specific-count').textContent = '0';
 }
 
-//Detecta quando a janela não está em foco e exibe a mensagem
+// Detecta quando a janela não está em foco e exibe a mensagem
 window.addEventListener('blur', function () {
     document.getElementById('focus-message').style.display = 'flex';
-    document.querySelector('.container').classList.add('container-blurred')
-}
-);
+    document.querySelector('.container').classList.add('container-blurred');
+});
 
-//Detecta quando a janela está em foco e esconde a mensagem
+// Detecta quando a janela está em foco e esconde a mensagem
 window.addEventListener('focus', function () {
     document.getElementById('focus-message').style.display = 'none';
-    document.querySelector('.container').classList.remove('container-blurred')
-}
-);
+    document.querySelector('.container').classList.remove('container-blurred');
+});
 
-//exibe alerta ao tentar recarregar a página
-window.addEventListener('beforeunload',
-    function (event) {
-        const confirmationMessage = 'A contagem de células será perdida. Deseja continuar?';
-        event.returnValue = confirmationMessage;
-
-    }
-)
+// Exibe alerta ao tentar recarregar a página
+window.addEventListener('beforeunload', function (event) {
+    const confirmationMessage = 'A contagem de células será perdida. Deseja continuar?';
+    event.returnValue = confirmationMessage;
+});
 
 function incrementCount(key) {
     const countElement = document.getElementById(cellMapping[key]);
@@ -114,5 +112,4 @@ function decrementCount(key) {
 function updateTotalCount(value) {
     totalCount += value;
     document.getElementById('total').textContent = totalCount;
-
 }
