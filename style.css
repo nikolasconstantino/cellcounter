@@ -39,8 +39,7 @@ header {
     width: 100%;
     box-sizing: border-box;
     position: fixed;
-    top: 0;
-    z-index: 1000;
+    align-self: flex-start;
 }
 
 
@@ -83,7 +82,7 @@ button:hover {
 
 
 .container {
-    text-align: center;
+    text-align: center; 
     padding: 20px;
     flex-direction: column;
     border-radius: 10px;
@@ -100,6 +99,8 @@ button:hover {
 .cell {
     display: inline-flex;
     flex-direction: column;
+    align-self: center;
+    justify-self: center;
     min-width: 100px;
     padding: 10px;
     margin: 10px;
@@ -168,4 +169,19 @@ footer {
     justify-content: center;
     align-items: center;
 
+}
+
+#specific-count {
+    display: none;
+}
+
+/* Animação de contagem */
+@keyframes countAnimation {
+    0% { background-color: #fff; }
+    50% { background-color: #4F6F52; }
+    100% { background-color: #fff; }
+}
+
+.cell.animate {
+    animation: countAnimation 0.3s ease-in-out;
 }
