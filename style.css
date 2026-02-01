@@ -47,6 +47,16 @@ body:has(.container-blurred) main.container {
     opacity: 0.25;
 }
 
+
+.cell, .cell * {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    -webkit-touch-callout: none;
+}
+
 .cell {
     border-radius: 12px;
     cursor: pointer;
