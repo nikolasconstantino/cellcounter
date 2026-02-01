@@ -1,136 +1,80 @@
 body {
     font-family: Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
     margin: 0;
     background-color: #f5f5f5;
+    /* layout em coluna para funcionar bem no mobile */
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Estilos para a mensagem de aviso */
+/* Estilos para a mensagem de aviso (Bootstrap controla o visual) */
 #warning-message {
     display: none;
-    text-align: center;
-    background-color: #ffcccc;
-    color: #333;
-    padding: 10px;
-    font-size: 16px;
-    font-weight: bold;
 }
 
-/* Aplicar a exibição da mensagem apenas em telas pequenas */
-@media (max-width: 767px) {
-    #warning-message {
-        display: block;
-    }
-
-    /* Ocultar o conteúdo principal */
-    body>*:not(#warning-message) {
-        display: none;
-    }
-}
-
+/* Bootstrap já estiliza; aqui só garantimos espaçamento consistente */
 header {
-    text-align: center;
-    padding: 20px;
-    background-color: #333;
-    color: #fff;
-    width: 100%;
-    box-sizing: border-box;
-    position: fixed;
-    align-self: flex-start;
+    /* Bootstrap já estiliza; aqui só garantimos espaçamento consistente */
 }
-
 
 .buttons-container {
     margin-top: 10px;
 }
 
-button {
-    margin: 0 5px;
-    padding: 5px 10px;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    background-color: #333;
-    color: #fff;
-    transition: background-color 0.3s ease;
-}
-
-button:hover {
-    background-color: #333;
-}
-
-.button-add {
-    background-color: #4F6F52;
-}
-
-.button-rem {
-    background-color: #A25772;
-}
-
-.disabled {
-    opacity: 0.5;
-    /* Reduz a opacidade para indicar que o botão está desabilitado */
-    cursor: not-allowed;
-    /* Altera o cursor para indicar que o botão não está disponível para interação */
-    pointer-events: none;
-    /* Desativa eventos de mouse no botão */
-}
-
-
-.container {
-    text-align: center; 
-    padding: 20px;
-    flex-direction: column;
+/* Botões: mantém Bootstrap como base, só ajusta área de toque */
+.buttons-container .btn {
+    min-width: 44px;
+    min-height: 40px;
     border-radius: 10px;
-    background-color: #ffffff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-    transition: opacity 0.3s ease;
+    touch-action: manipulation;
 }
 
-.container-blurred {
-    opacity: 0.2;
+.buttons-container .btn:active {
+    transform: scale(0.98);
+}
+
+/* Estiliza apenas o container principal do app (não interfere no Bootstrap do header/footer) */
+main.container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+}
+
+/* Se qualquer `.container` receber o blur, desfoca o conteúdo principal */
+body:has(.container-blurred) main.container {
+    opacity: 0.25;
 }
 
 .cell {
-    display: inline-flex;
-    flex-direction: column;
-    align-self: center;
-    justify-self: center;
-    min-width: 100px;
-    padding: 10px;
-    margin: 10px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    background-color: #f0f0f0;
-    position: relative;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.05s ease;
+}
+
+.cell:active {
+    transform: scale(0.99);
 }
 
 .cell-name {
-    font-size: 16px;
-    font-weight: bold;
-    margin-bottom: 5px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 0;
 }
 
 .count {
-    font-size: 24px;
-    font-weight: bold;
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .key-indicator {
-    position: absolute;
-    top: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: #333;
-    color: #ffffff;
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 12px;
+    font-size: 0.75rem;
+    border-radius: 10px;
 }
 
 #total-counter {
@@ -139,15 +83,7 @@ button:hover {
 }
 
 footer {
-    position: absolute;
-    font-size: 12px;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    text-align: center;
-    padding: 10px 0;
-    background-color: #333;
-    color: #faebd7;
+    margin-top: auto;
 }
 
 .subtitle {
@@ -156,19 +92,9 @@ footer {
 }
 
 .attention-message {
-    font-size: 14px;
-    margin-top: 350px;
-    padding: 10px;
-    border-radius: 5px;
-    background-color: #f0f0f0;
-    color: #f95959;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    max-width: 80%;
-    position: absolute;
+    width: min(900px, calc(100% - 24px));
+    margin: 12px auto 0;
     display: none;
-    justify-content: center;
-    align-items: center;
-
 }
 
 #specific-count {
@@ -182,6 +108,41 @@ footer {
     100% { background-color: #fff; }
 }
 
+@keyframes countAnimationRemove {
+    0% { background-color: #fff; }
+    50% { background-color: #dc3545; }
+    100% { background-color: #fff; }
+}
+
 .cell.animate {
     animation: countAnimation 0.3s ease-in-out;
+}
+
+.cell.animate-remove {
+    animation: countAnimationRemove 0.3s ease-in-out;
+}
+
+/* Ajustes para telas pequenas */
+@media (max-width: 480px) {
+    main.container {
+        padding: 14px;
+    }
+
+    #total-counter {
+        font-size: 1.25rem;
+        margin-bottom: 12px;
+    }
+
+    .buttons-container .btn {
+        min-width: 44px;
+        min-height: 40px;
+    }
+}
+
+/* Preferência do usuário: reduzir movimento */
+@media (prefers-reduced-motion: reduce) {
+    .cell.animate,
+    .cell.animate-remove {
+        animation: none;
+    }
 }
