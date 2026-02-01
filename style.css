@@ -47,22 +47,24 @@ body:has(.container-blurred) main.container {
     opacity: 0.25;
 }
 
-
-.cell, .cell * {
-    user-select: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    -o-user-select: none;
-    -webkit-touch-callout: none;
-}
-
 .cell {
     border-radius: 12px;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.05s ease;
+     user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;       /* iOS: impede menu de seleção/cópia */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* Impede zoom duplo e gestos de pinça */
+}
+
+/* Evita seleção/callout em qualquer texto dentro do card (iOS/Android) */
+.cell, .cell * {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .cell:active {
