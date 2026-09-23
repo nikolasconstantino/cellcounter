@@ -1,386 +1,187 @@
-<!--
- * @brief		Contador de Células HTML
- * @author		Nikolas Rodrigues Constantino
- * @copyright	(c) Nikolas Rodrigues Constantino
- * @license
- * @package		Contador de Células - Hematologia
- * @since		13 Apr 2024
- * @version     1.2.0 build 01/02/2026
--->
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-
-  <title>Contador de Células</title>
-
-  <!-- Bootstrap 5 (CDN) -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
-    crossorigin="anonymous"
-  />
-
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f7f6">
+  <meta name="description" content="Contador diferencial de células com atalhos de teclado, correção e salvamento automático neste navegador.">
+  <title>Contador de Células · Hematologia</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <script>
+    try {
+      const theme = JSON.parse(localStorage.getItem('cellCounterPrefs_v3') || '{}').theme;
+      if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
+    } catch (_) {}
+  </script>
+  <link rel="stylesheet" href="./style.css?v=2.4.6">
+  <link rel="stylesheet" href="./color-picker.css?v=2.4.1">
+  <script src="./counter.js?v=2.4.1" defer></script>
+  <script src="./color-picker.js?v=2.4.1" defer></script>
+  <script src="./layout.js?v=2.4.1" defer></script>
+  <script src="./editor.js?v=2.4.1" defer></script>
+  <script src="./session.js?v=2.4.1" defer></script>
+  <script src="./script.js?v=2.4.1" defer></script>
 </head>
-
 <body>
-  <!-- Aviso opcional (não bloqueia o app) -->
-  <div id="warning-message" class="alert alert-warning text-center mb-0" role="alert" style="display:none;">
-    Por favor, abra esta página em um computador para uma melhor experiência.
+  <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="m9 4-5 5 5 5M4 9h9a7 7 0 0 1 0 14" transform="translate(0 -2)"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-summary" viewBox="0 0 24 24"><path d="M8 3h8l4 4v14H4V3h4Zm8 0v5h4M8 12h8M8 16h5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 4 5 9H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="M11 4 5 9H2v6h3l6 5Zm5 5 6 6m0-6-6 6"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6"/></symbol>
+    <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17h7m-3.5-3.5v7"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 5 2c-1 .6-2 1-2 3m0 3h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></symbol>
+    <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
+    <symbol id="i-linkedin" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7.5 10v7m0-10v.01M11.5 17v-7m0 3a3 3 0 0 1 6 0v4"/></symbol>
+  </defs></svg>
+  <a class="skip-link" href="#counting">Ir para contagem</a>
+  <div class="app-shell">
+    <header class="app-header">
+      <a class="brand" href="./" aria-label="Contador de Células, início">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><span class="brand-title">Contador de Células</span><span class="brand-subtitle">HEMATOLOGIA</span></span>
+      </a>
+      <label class="mode-picker"><span class="sr-only">Tipo de contagem</span><select id="mode-select" aria-label="Tipo de contagem"><option value="blood">Sangue periférico</option><option value="marrow">Medula óssea</option></select></label>
+      <nav class="header-actions" aria-label="Preferências e ajuda">
+        <button class="icon-button" id="sound-button" type="button" aria-label="Desativar sons" title="Desativar sons" aria-pressed="true"><svg class="icon"><use href="#i-volume"/></svg></button>
+        <button class="icon-button" id="theme-button" type="button" aria-label="Mudar tema" title="Mudar tema"><svg class="icon"><use href="#i-sun"/></svg></button>
+        <button class="icon-button" id="settings-button" type="button" aria-label="Preferências" title="Preferências"><svg class="icon"><use href="#i-settings"/></svg></button>
+        <button class="icon-button" id="help-button" type="button" aria-label="Ajuda e atalhos" title="Ajuda e atalhos"><svg class="icon"><use href="#i-help"/></svg></button>
+        <button class="icon-button" id="info-button" type="button" aria-label="Sobre o aplicativo e o autor" title="Sobre o aplicativo e o autor"><svg class="icon"><use href="#i-info"/></svg></button>
+      </nav>
+    </header>
+
+    <noscript><p class="notice">Ative o JavaScript no navegador para usar o contador.</p></noscript>
+    <main>
+      <section class="restore-banner notice" id="restore-banner" aria-labelledby="restore-title" hidden>
+        <div><strong id="restore-title">Contagem recuperada</strong><p id="restore-detail"></p></div>
+        <div class="button-row"><button class="button primary small" id="resume-button" type="button">Continuar</button><button class="button small" data-new type="button">Nova contagem</button></div>
+      </section>
+      <section class="progress-panel" aria-label="Progresso da contagem">
+        <div class="progress-overview">
+          <div class="score"><span class="eyebrow">CÉLULAS CONTADAS</span><div class="score-value"><strong id="total">0</strong><span>/ <span id="target-label">100</span></span></div></div>
+          <div class="progress-main"><div class="progress-meta"><span class="status-pill" id="state-label"><span class="status-dot"></span><span id="state-text">Pronta para contar</span></span><span id="remaining">Faltam 100</span></div><div class="progress-track" id="progress" role="progressbar" aria-label="Células contadas" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill"></div></div></div>
+        </div>
+        <div class="progress-actions"><button class="button pause-button" id="pause-button" type="button" aria-pressed="false"><svg class="icon"><use href="#i-pause"/></svg><span>Pausar</span></button><button class="button primary" id="new-count-button" data-new type="button"><svg class="icon"><use href="#i-plus"/></svg>Nova contagem</button></div>
+      </section>
+
+      <section class="count-section" id="counting" aria-labelledby="count-title">
+        <div class="section-toolbar"><div><h1 id="count-title">Contagem diferencial</h1><p class="section-hint" id="count-hint">Toque para contar <span aria-hidden="true">·</span> <span class="keyboard-hint">Use as teclas indicadas</span></p><p class="section-hint edit-hint" id="edit-hint" hidden>Arraste para mover. Clique na tecla para editar nome, atalho e cor.</p></div>
+          <div class="toolbar-buttons" id="count-controls"><button class="button" id="edit-button" type="button"><svg class="icon"><use href="#i-layout"/></svg><span>Editar células</span></button><button class="button" id="undo-button" type="button" disabled title="Desfazer última ação (Ctrl ou ⌘ + Z)"><svg class="icon"><use href="#i-undo"/></svg><span>Desfazer</span></button><button class="button" id="summary-button" type="button"><svg class="icon"><use href="#i-summary"/></svg><span>Resumo</span></button></div>
+          <div class="toolbar-buttons editor-controls" id="editor-controls" hidden><button class="button" id="groups-button" type="button">Grupos e cores</button><button class="button" id="restore-layout-button" type="button">Restaurar padrão</button><button class="button primary" id="finish-edit-button" type="button"><svg class="icon"><use href="#i-check"/></svg>Concluir edição</button></div>
+        </div>
+        <div class="cell-grid" id="cell-grid"><p id="empty-grid" class="empty-grid" hidden>Nenhuma célula neste modo. Use Editar células e o botão + para adicionar.</p><div class="cell-slot add-cell-slot" id="add-cell-slot" hidden><button class="cell-add-new" id="add-cell-button" type="button" aria-label="Adicionar célula" title="Adicionar célula"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>Adicionar célula</span></button></div></div>
+        <div class="count-footer"><p class="last-action" id="last-action">Aguardando a primeira célula</p><p class="edit-status" id="edit-status" role="status" hidden>Alterações salvas neste navegador.</p></div>
+      </section>
+
+      <section class="completion-banner" id="completion-banner" hidden aria-labelledby="completion-title"><div class="completion-icon"><svg class="icon"><use href="#i-check"/></svg></div><div><h2 id="completion-title">Contagem concluída</h2><p>O resultado está pronto. Você ainda pode corrigir os valores.</p></div><button class="button primary" id="completion-summary" type="button">Ver resultado</button></section>
+
+      <div class="session-toolbar">
+        <div class="session-status"><span id="save-indicator" class="save-indicator"></span><span id="save-label">Salvamento automático neste navegador</span><button class="text-button" id="retry-save" type="button" hidden>Tentar novamente</button></div>
+        <div class="target-selector"><span class="eyebrow" id="target-options-label">META DE CONTAGEM</span><div class="target-options" id="target-options" role="group" aria-labelledby="target-options-label"></div></div>
+      </div>
+    </main>
+    <footer class="app-footer"><span>© 2026 Nikolas R. Constantino <a href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas"><svg class="icon"><use href="#i-instagram"/></svg></a><a href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas"><svg class="icon"><use href="#i-linkedin"/></svg></a></span><span class="footer-shortcut"><svg class="icon"><use href="#i-keyboard"/></svg><kbd>Shift</kbd> + tecla para corrigir <span class="version">v2.4</span></span></footer>
   </div>
 
-  <!-- Header -->
-  <header class="bg-dark text-white py-3 sticky-top">
-    <div class="container">
-      <h1 class="h3 mb-0 text-center">Contador de Células</h1>
-      <!-- <p class="subtitle mb-0 text-center">células sanguíneas</p> -->
-    </div>
-  </header>
-
-  <!-- Conteúdo principal -->
-  <main class="container my-3">
-    <!-- Total + dica -->
-    <div class="d-flex flex-column flex-sm-row gap-2 align-items-center justify-content-between mb-3">
-      <div id="total-counter" class="fs-4">
-        Total: <span id="total">0</span>
-      </div>
-      <div class="text-secondary small text-center text-sm-end">
-        Toque no card para <b>+1</b>. Pressione e segure para <b>-1</b>.
-      </div>
-    </div>
-
-    <!-- Grid de cards (lado a lado, responsivo) -->
-    <div class="row g-3">
-
-      <!-- Segmentado -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="h" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">H</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Segmentado</div>
-            <div class="count" id="count-h">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('h')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('h')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bastonete -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="g" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">G</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Bastonete</div>
-            <div class="count" id="count-g">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('g')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('g')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Linfócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="j" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">J</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Linfócito</div>
-            <div class="count" id="count-j">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('j')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('j')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Atípico -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="l" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">L</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Atípico</div>
-            <div class="count" id="count-l">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('l')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('l')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Monócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="k" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">K</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Monócito</div>
-            <div class="count" id="count-k">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('k')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('k')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Plasmócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="e" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">E</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Plasmócito</div>
-            <div class="count" id="count-e">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('e')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('e')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Basófilo -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="a" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">A</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Basófilo</div>
-            <div class="count" id="count-a">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('a')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('a')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Eosinófilo -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="s" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">S</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Eosinófilo</div>
-            <div class="count" id="count-s">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('s')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('s')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Promielócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="t" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">T</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Promielocito</div>
-            <div class="count" id="count-t">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('t')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('t')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Metamielócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="f" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">F</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Metamielocito</div>
-            <div class="count" id="count-f">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('f')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('f')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Mielócito -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="d" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">D</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Mielocito</div>
-            <div class="count" id="count-d">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('d')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('d')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Blasto -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="r" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">R</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Blasto</div>
-            <div class="count" id="count-r">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('r')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('r')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Outras -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="q" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">Q</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Outras</div>
-            <div class="count" id="count-q">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('q')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('q')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Eritroblasto (não entra no total) -->
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-        <div class="cell card h-100 position-relative" data-key="p" role="button" tabindex="0">
-          <span class="badge bg-dark position-absolute top-0 end-0 m-2 key-indicator">P</span>
-          <div class="card-body d-flex flex-column align-items-center justify-content-center text-center gap-1">
-            <div class="cell-name">Eritroblasto</div>
-            <div id="eritro-count" class="count count-p">0</div>
-            <div class="buttons-container d-none d-sm-flex justify-content-center gap-2 mt-2">
-              <button type="button" class="btn btn-sm btn-danger" onclick="decrementCount('p')">-</button>
-              <button type="button" class="btn btn-sm btn-success" onclick="incrementCount('p')">+</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Reiniciar -->
-   <button type="button" class="btn btn-secondary w-100 mt-3"
-        data-bs-toggle="modal" data-bs-target="#resetModal">
-  Reiniciar Contagem
-</button>
-  </main>
-
-  <!-- Mensagem de foco -->
-  <div id="focus-message" class="alert alert-warning attention-message" role="alert">
-    <b>ATENÇÃO!</b> A janela do navegador precisa estar em foco para que a contagem funcione corretamente.
+  <div id="focus-overlay" class="focus-overlay" popover="manual" role="status" aria-live="polite" hidden>
+    <div class="focus-card"><span class="focus-symbol" aria-hidden="true"><svg class="icon"><use href="#i-keyboard"/></svg></span><h2>Janela sem foco</h2><p>Selecione esta janela para continuar usando o contador. As teclas de contagem estão temporariamente bloqueadas.</p><button class="button primary" id="focus-return" type="button">Voltar à janela</button></div>
   </div>
 
-  <!-- Modal de conclusão (abre ao atingir 100 células) -->
-<div class="modal fade" id="finishModal" tabindex="-1" aria-labelledby="finishModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4 shadow">
-      <div class="modal-header border-bottom-0">
-        <h1 class="modal-title fs-5" id="finishModalLabel">Contagem concluída</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <dialog id="info-dialog" class="modal compact-modal" aria-labelledby="info-title"><div class="modal-header"><h2 id="info-title">Sobre o aplicativo</h2><button class="icon-button" type="button" data-close aria-label="Fechar informações"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body about-body"><span class="eyebrow">CRIAÇÃO E DESENVOLVIMENTO</span><h3 class="author-name">Nikolas Rodrigues Constantino</h3><p class="author-role">Biomédico · Hematologia e desenvolvimento de software</p><p>Contador de células para sangue periférico e medula óssea.</p><div class="author-socials"><a class="button author-instagram" href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas: @niikee_ (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-instagram"/></svg>@niikee_</a><a class="button author-linkedin" href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a></div><p class="about-version">Versão 2.4 · © 2026 Nikolas R. Constantino</p></div></dialog>
+
+  <dialog id="summary-dialog" class="modal summary-modal" aria-labelledby="summary-title">
+    <div class="modal-header"><div><span class="eyebrow" id="summary-mode">Sangue periférico</span><h2 id="summary-title">Resumo parcial</h2></div><button class="icon-button" type="button" data-close aria-label="Fechar resumo"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="modal-body"><div class="summary-meta"><strong id="summary-total"></strong><span id="summary-target"></span></div><table class="results-table"><thead><tr><th scope="col">Célula</th><th scope="col">Contagem</th><th scope="col">%</th></tr></thead><tbody id="summary-rows"></tbody></table><div id="summary-excluded"></div><p class="field-help" id="summary-note"></p><div id="copy-fallback" hidden><label for="report-text">Selecione e copie o resultado</label><textarea id="report-text" readonly rows="9"></textarea></div><p id="copy-status" class="inline-status" role="status"></p></div>
+    <div class="modal-footer"><button class="button" id="download-csv" type="button"><svg class="icon"><use href="#i-download"/></svg>Baixar CSV</button><button class="button primary" id="copy-result" type="button"><svg class="icon"><use href="#i-copy"/></svg>Copiar resultado</button></div>
+  </dialog>
+
+  <dialog id="new-dialog" class="modal compact-modal" aria-labelledby="new-title"><div class="modal-header"><h2 id="new-title">Nova contagem</h2><button class="icon-button" type="button" data-close aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body"><p id="new-description">Escolha a meta para começar.</p><label class="field-label" for="new-target">Meta da nova contagem</label><select id="new-target"><option value="100">100 células</option><option value="200">200 células</option><option value="500">500 células</option></select><p class="field-help" id="new-mode-hint">Apenas a contagem deste modo será reiniciada.</p></div><div class="modal-footer"><button class="button" data-close type="button" id="cancel-new">Cancelar</button><button class="button primary" id="confirm-new" type="button">Iniciar contagem</button></div></dialog>
+
+  <dialog id="target-dialog" class="modal compact-modal" aria-labelledby="target-title"><div class="modal-header"><h2 id="target-title">Alterar a meta?</h2><button class="icon-button" type="button" data-close aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body"><p id="target-description"></p><p class="field-help">As células já contadas serão mantidas.</p></div><div class="modal-footer"><button class="button" data-close type="button">Cancelar</button><button class="button primary" id="confirm-target" type="button">Alterar meta</button></div></dialog>
+
+  <dialog id="key-dialog" class="modal compact-modal" aria-labelledby="key-title">
+    <form id="key-form">
+      <div class="modal-header"><h2 id="key-title">Editar célula</h2><button class="icon-button" data-close type="button" aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div>
+      <div class="modal-body edit-cell-fields">
+        <p id="key-cell-name" class="field-help"></p>
+        <div class="edit-name-field"><label class="field-label" for="edit-cell-name">Nome da célula</label><input id="edit-cell-name" type="text" maxlength="40" autocomplete="off" required aria-describedby="edit-name-feedback"><p id="edit-name-feedback" class="key-feedback" role="status"></p></div>
+        <div class="edit-key-field"><label class="field-label" for="key-input">Tecla de contagem</label><input class="key-input" id="key-input" maxlength="1" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="key-help key-feedback"><p class="field-help" id="key-help">Uma letra (A–Z ou Ç) ou um número. Shift + tecla continua removendo uma célula.</p><p id="key-feedback" class="key-feedback" role="status"></p></div>
+        <div class="cell-color-field"><span class="field-label" id="edit-cell-color-label">Cor no topo do cartão</span><div id="edit-cell-color-picker" role="group" aria-labelledby="edit-cell-color-label"></div><p class="field-help">Automática usa a cor do grupo. Uma cor individual tem prioridade.</p></div>
       </div>
-      <div class="modal-body py-0">
-        <p>Você já contou <b>100 células</b>. A contagem foi bloqueada para evitar ultrapassar o total.</p>
-        <p class="mb-0 text-secondary">Se precisar corrigir, use <b>-</b> (em telas maiores) ou pressione e segure o card para remover.</p>
+      <div class="modal-footer"><button class="button" data-close type="button">Cancelar</button><button class="button primary" id="save-key-button" type="submit">Salvar alterações</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="add-cell-dialog" class="modal compact-modal" aria-labelledby="add-cell-title">
+    <form id="add-cell-form">
+      <div class="modal-header"><h2 id="add-cell-title">Adicionar célula</h2><button class="icon-button" data-close type="button" aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div>
+      <div class="modal-body add-cell-fields">
+        <div class="new-cell-name-field"><label class="field-label" for="new-cell-name">Nome da célula</label><input id="new-cell-name" type="text" maxlength="40" autocomplete="off" placeholder="Ex.: Linfócito reativo" required></div>
+        <div class="new-cell-key-field">
+          <input class="key-input key-capture" id="new-cell-key" type="text" readonly aria-readonly="true" inputmode="none" autocomplete="off" spellcheck="false" placeholder="Tecla" data-state="waiting" aria-describedby="new-cell-key-status" aria-invalid="false">
+          <div class="key-capture-help">
+            <label class="field-label" for="new-cell-key">Tecla de contagem</label>
+            <p class="key-feedback key-capture-status" id="new-cell-key-status" role="status" aria-live="polite">Selecione o quadrado e pressione uma tecla.</p>
+            <button class="text-button key-picker-toggle" id="toggle-key-picker" type="button" aria-expanded="false" aria-controls="key-picker">Teclado na tela</button>
+          </div>
+        </div>
+        <div class="new-cell-total-field"><label class="field-label" for="new-cell-total">Incluir na contagem global?</label><select id="new-cell-total"><option value="included">Sim — participa do total e da meta</option><option value="excluded">Não — manter contagem separada</option></select></div>
+        <div class="cell-color-field"><span class="field-label" id="new-cell-color-label">Cor no topo do cartão</span><div id="new-cell-color-picker" role="group" aria-labelledby="new-cell-color-label"></div></div>
+        <div class="key-picker" id="key-picker" role="group" aria-label="Escolher tecla de contagem" hidden></div>
+        <p id="new-cell-feedback" class="key-feedback" role="status">Escolha um nome e uma tecla disponível.</p>
       </div>
-      <div class="modal-footer flex-column align-items-stretch w-100 gap-2 pb-3 border-top-0">
-    <!--    <button type="button" class="btn btn-lg btn-primary" onclick="resetCount()" data-bs-dismiss="modal">Reiniciar contagem</button> -->
-        <button type="button" class="btn btn-lg btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      <div class="modal-footer"><button class="button" data-close type="button">Cancelar</button><button class="button primary" id="confirm-add-cell" type="submit">Adicionar célula</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="groups-dialog" class="modal groups-modal" aria-labelledby="groups-title">
+    <form id="group-form">
+      <div class="modal-header"><h2 id="groups-title">Grupos e cores</h2><button class="icon-button" data-close type="button" aria-label="Fechar grupos"><svg class="icon"><use href="#i-close"/></svg></button></div>
+      <div class="modal-body groups-body">
+        <aside class="groups-sidebar" aria-label="Grupos existentes"><button class="button" type="button" id="new-group-button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Criar grupo</button><div id="group-list"></div></aside>
+        <div class="group-fields">
+          <div><label class="field-label" for="group-name">Nome do grupo</label><input id="group-name" type="text" maxlength="40" autocomplete="off" placeholder="Ex.: Granulócitos" required aria-describedby="group-name-help"><p class="field-help" id="group-name-help">O nome aparece somente aqui. Nos cartões, aparece apenas a cor.</p></div>
+          <div><span class="field-label" id="group-color-label">Cor do grupo</span><div id="group-color-picker" role="group" aria-labelledby="group-color-label"></div></div>
+          <fieldset class="group-members-field"><legend class="field-label">Células do grupo</legend><label class="sr-only" for="group-cell-search">Buscar células</label><input id="group-cell-search" type="search" placeholder="Buscar células" autocomplete="off"><div class="group-selection-actions"><span id="group-selection-count" role="status"></span><button class="text-button" id="group-select-visible" type="button">Selecionar visíveis</button><button class="text-button" id="group-clear-members" type="button">Limpar</button></div><div class="group-members" id="group-members"></div><p class="field-help">Cada célula pertence a um grupo. Selecioná-la move sua participação para este grupo. Cores individuais têm prioridade.</p></fieldset>
+          <p class="key-feedback" id="group-feedback" role="status"></p>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
+      <div class="modal-footer group-modal-footer"><button class="button danger" id="delete-group-button" type="button" hidden>Excluir grupo</button><button class="button" data-close type="button">Fechar</button><button class="button primary" id="save-group-button" type="submit">Salvar grupo</button></div>
+    </form>
+  </dialog>
 
-<!-- Modal de confirmação para reiniciar contagem -->
-<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content rounded-4 shadow">
-      <div class="modal-header border-bottom-0">
-        <h1 class="modal-title fs-5" id="resetModalLabel">Confirmar reinício</h1>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
+  <dialog id="delete-cell-dialog" class="modal compact-modal" aria-labelledby="delete-cell-title"><div class="modal-header"><h2 id="delete-cell-title">Excluir célula?</h2><button class="icon-button" data-close type="button" aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body"><p id="delete-cell-description"></p><p class="delete-impact" id="delete-cell-impact"></p><p class="field-help">A exclusão será mantida nas próximas contagens deste modo. O outro modo não será alterado.</p></div><div class="modal-footer"><button class="button" id="cancel-delete-cell" data-close type="button">Cancelar</button><button class="button danger" id="confirm-delete-cell" type="button">Excluir célula</button></div></dialog>
 
-      <div class="modal-body py-0">
-        <p>Tem certeza que deseja <b>reiniciar</b> a contagem?</p>
-        <p class="mb-0 text-secondary">
-          Isso vai zerar todas as células (incluindo eritroblastos) e limpar o progresso salvo.
-        </p>
-      </div>
+  <dialog id="layout-reset-dialog" class="modal compact-modal" aria-labelledby="layout-reset-title"><div class="modal-header"><h2 id="layout-reset-title">Restaurar organização?</h2><button class="icon-button" data-close type="button" aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body"><p>As posições e as teclas voltarão à organização sugerida. Os nomes editados, suas células personalizadas e os valores contados serão mantidos. Células excluídas não serão restauradas.</p></div><div class="modal-footer"><button class="button" data-close type="button">Cancelar</button><button class="button primary" id="confirm-reset-layout" type="button">Restaurar</button></div></dialog>
 
-      <div class="modal-footer flex-column align-items-stretch w-100 gap-2 pb-3 border-top-0">
-        <button type="button" class="btn btn-lg btn-danger" onclick="resetCount()" data-bs-dismiss="modal">
-          Reiniciar agora
-        </button>
-        <button type="button" class="btn btn-lg btn-secondary" data-bs-dismiss="modal">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+  <dialog id="settings-dialog" class="modal compact-modal" aria-labelledby="settings-title"><div class="modal-header"><h2 id="settings-title">Preferências</h2><button class="icon-button" data-close type="button" aria-label="Fechar preferências"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body settings-body">
+    <label class="setting-row" for="theme-select"><span>Tema<small>Aparência da interface</small></span><select id="theme-select"><option value="system">Automático</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label>
+    <label class="setting-row" for="progress-colors-setting"><span>Cor conforme o progresso<small>Vermelho, amarelo, azul e verde até concluir</small></span><input type="checkbox" id="progress-colors-setting" role="switch"></label>
+    <label class="setting-row" for="sound-setting"><span>Sons<small>Ativar retorno sonoro</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
+    <label class="setting-row" for="count-sound-setting"><span>Som a cada registro<small>Tons diferentes para adicionar e corrigir</small></span><input type="checkbox" id="count-sound-setting" role="switch"></label>
+    <label class="setting-row" for="finish-sound-setting"><span>Aviso ao concluir<small>Tocar ao atingir a meta</small></span><input type="checkbox" id="finish-sound-setting" role="switch"></label>
+    <div class="volume-setting"><label for="volume-setting">Volume <output id="volume-label" for="volume-setting">35%</output></label><input id="volume-setting" type="range" min="0" max="100" step="5" value="35"></div>
+    <button class="button" id="test-sound" type="button">Testar som</button><p class="field-help" id="preferences-status" role="status">Preferências salvas neste navegador.</p>
+  </div><div class="modal-footer"><button class="button primary" data-close type="button">Concluído</button></div></dialog>
 
+  <dialog id="help-dialog" class="modal" aria-labelledby="help-title"><div class="modal-header"><h2 id="help-title">Contar, corrigir e continuar</h2><button class="icon-button" data-close type="button" aria-label="Fechar ajuda"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body help-body"><p>Toque ou clique no cartão para adicionar uma célula. Use o botão <strong>−</strong> para remover. No celular, pressionar e segurar o cartão também remove uma célula.</p><dl class="shortcut-list"><div><dt>Adicionar uma célula</dt><dd>Tecla indicada no cartão</dd></div><div><dt>Remover uma célula</dt><dd><kbd>Shift</kbd> + tecla</dd></div><div><dt>Desfazer a última ação</dt><dd><kbd>Ctrl</kbd> / <kbd>⌘</kbd> + <kbd>Z</kbd></dd></div><div><dt>Acionar o botão em foco</dt><dd><kbd>Enter</kbd> ou <kbd>Espaço</kbd></dd></div></dl><h3>Sangue periférico e medula óssea</h3><p>Escolha o tipo de contagem no topo. Cada modo mantém sua própria sessão, meta, células, posições e teclas. Na medula, os quatro estágios eritrocíticos participam do total global. Os macrófagos têm contagem separada. N, Eo e Ba identificam as linhagens neutrofílica, eosinofílica e basofílica nos cartões.</p><h3>Ao atingir a meta</h3><p>A adição de células do diferencial é bloqueada. A correção continua disponível, assim como as células configuradas para contagem separada. Abra o resumo para copiar ou baixar o resultado.</p><h3>Editar e adicionar células</h3><p>Em <strong>Editar células</strong>, segure e arraste um cartão para outra posição. Os vizinhos abrem espaço automaticamente. Clique na tecla com o lápis para editar o nome e o atalho de qualquer célula, inclusive as padrão. Nomes editados são mantidos nas próximas contagens e aparecem no resumo e no CSV. Se o atalho já estiver em uso, você poderá confirmar a troca. Pelo teclado, foque um cartão e use <strong>Alt + setas</strong> para movê-lo.</p><p>O cartão pontilhado com <strong>+</strong> adiciona uma célula. Informe o nome, selecione o campo pulsante e pressione uma tecla disponível. Se ela estiver ocupada, o campo pisca três vezes em vermelho e identifica o conflito. No celular, use <strong>Teclado na tela</strong>. Escolha se a célula participa do total global. As células separadas não entram na meta nem nos percentuais. Clique em <strong>Concluir edição</strong> para voltar à contagem.</p><p>A lixeira de cada cartão, visível durante a edição, permite excluir células originais ou personalizadas. Antes de confirmar, você verá quantos registros serão removidos. As outras células e o outro modo de contagem são preservados.</p><h3>Sua contagem fica neste navegador</h3><p>Ao voltar, escolha continuar a sessão recuperada ou iniciar outra. Limpar os dados do navegador remove a contagem salva. Os atalhos ficam suspensos enquanto uma janela de diálogo está aberta.</p></div><div class="modal-footer"><button class="button primary" data-close type="button">Entendi</button></div></dialog>
 
-  <!-- Mantido para compatibilidade -->
-  <div id="specific-count" style="display: none;">0</div>
-
-  <!-- Footer 
-  <footer class="bg-dark text-light py-2">
-    <div class="container text-center">
-      <small>Desenvolvido por Nikolas R. Constantino</small>
-    </div>
-  </footer> -->
-
- <!-- Footer (Bootstrap template) -->
-<div class="container">
-  <footer class="d-flex flex-wrap justify-content-between align-items-center py-3 my-4 border-top">
-    <div class="col-md-6 d-flex align-items-center">
-      <span class="mb-0 text-body-secondary">© 2026 Nikolas R. Constantino</span>
-    </div>
-
-    <ul class="nav col-md-6 justify-content-end list-unstyled d-flex">
-      <li class="ms-3">
-        <a class="text-body-secondary"
-           href="https://www.instagram.com/niikee_/"
-           target="_blank"
-           rel="noopener noreferrer"
-           aria-label="Instagram">
-          <svg class="bi" width="24" height="24" aria-hidden="true">
-            <use xlink:href="#instagram"></use>
-          </svg>
-        </a>
-      </li>
-    </ul>
-  </footer>
-</div>
-
-<!-- SVG sprite (apenas ícone do Instagram) -->
-<svg xmlns="http://www.w3.org/2000/svg" style="display:none;">
-  <symbol id="instagram" viewBox="0 0 16 16">
-    <path d="M8 0C5.829 0 5.556.01 4.703.048 3.85.088 3.269.222 2.76.42a3.917 3.917 0 0 0-1.417.923A3.927 3.927 0 0 0 .42 2.76C.222 3.268.087 3.85.048 4.7.01 5.555 0 5.827 0 8.001c0 2.172.01 2.444.048 3.297.04.852.174 1.433.372 1.942.205.526.478.972.923 1.417.444.445.89.719 1.416.923.51.198 1.09.333 1.942.372C5.555 15.99 5.827 16 8 16s2.444-.01 3.298-.048c.851-.04 1.434-.174 1.943-.372a3.916 3.916 0 0 0 1.416-.923c.445-.445.718-.891.923-1.417.197-.509.332-1.09.372-1.942C15.99 10.445 16 10.173 16 8s-.01-2.445-.048-3.299c-.04-.851-.175-1.433-.372-1.941a3.926 3.926 0 0 0-.923-1.417A3.911 3.911 0 0 0 13.24.42c-.51-.198-1.092-.333-1.943-.372C10.443.01 10.172 0 7.998 0h.003zm-.717 1.442h.718c2.136 0 2.389.007 3.232.046.78.035 1.204.166 1.486.275.373.145.64.319.92.599.28.28.453.546.598.92.11.281.24.705.275 1.485.039.843.047 1.096.047 3.231s-.008 2.389-.047 3.232c-.035.78-.166 1.203-.275 1.485a2.47 2.47 0 0 1-.599.919c-.28.28-.546.453-.92.598-.28.11-.704.24-1.485.276-.843.038-1.096.047-3.232.047s-2.39-.009-3.233-.047c-.78-.036-1.203-.166-1.485-.276a2.478 2.478 0 0 1-.92-.598 2.48 2.48 0 0 1-.6-.92c-.109-.281-.24-.705-.275-1.485-.038-.843-.046-1.096-.046-3.233 0-2.136.008-2.388.046-3.231.036-.78.166-1.204.276-1.486.145-.373.319-.64.599-.92.28-.28.546-.453.92-.598.282-.11.705-.24 1.485-.276.738-.034 1.024-.044 2.515-.045v.002zm4.988 1.328a.96.96 0 1 0 0 1.92.96.96 0 0 0 0-1.92zm-4.27 1.122a4.109 4.109 0 1 0 0 8.217 4.109 4.109 0 0 0 0-8.217zm0 1.441a2.667 2.667 0 1 1 0 5.334 2.667 2.667 0 0 1 0-5.334z"/>
-  </symbol>
-</svg>
-
-
-  <!-- Bootstrap Bundle (JS) -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-    crossorigin="anonymous"
-  ></script>
-
-  <!-- Seu script -->
-  <script src="script.js"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="sr-only" id="announcer" role="status" aria-live="polite" aria-atomic="true"></div>
 </body>
 </html>
