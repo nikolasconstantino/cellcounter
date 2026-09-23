@@ -17,7 +17,7 @@
   const $ = id => document.getElementById(id);
   const cells = new Map();
   const dialogs = [...document.querySelectorAll('dialog')];
-  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true };
+  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true, wallpaper: true };
   const themeChoices = [
     { value: 'light', label: 'Claro' },
     { value: 'system', label: 'Automático' },
@@ -153,7 +153,7 @@
       const stored = JSON.parse(localStorage.getItem(PREFS_STORAGE) || '{}');
       if (!stored || typeof stored !== 'object') return;
       if (['system', 'light', 'dark'].includes(stored.theme)) preferences.theme = stored.theme;
-      for (const key of ['sound', 'countSound', 'finishSound', 'progressColors']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
+      for (const key of ['sound', 'countSound', 'finishSound', 'progressColors', 'wallpaper']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
       if (Number.isFinite(stored.volume)) preferences.volume = Math.min(100, Math.max(0, stored.volume));
     } catch (_) { /* As preferências padrão continuam disponíveis. */ }
   }
@@ -314,6 +314,8 @@
     $('theme-select').setAttribute('aria-valuetext', themeChoices[themePosition].label);
     $('theme-control').dataset.themeMode = preferences.theme;
     $('theme-mode-label').textContent = themeChoices[themePosition].label;
+    $('wallpaper-setting').checked = preferences.wallpaper;
+    window.CellWallpaperView?.setEnabled(preferences.wallpaper);
     $('progress-colors-setting').checked = preferences.progressColors;
     $('sound-setting').checked = preferences.sound;
     $('count-sound-setting').checked = preferences.countSound;
@@ -345,11 +347,12 @@
   function renderProgress() {
     const total = Core.total(state);
     const ratio = Math.max(0, Math.min(1, total / state.target));
-    const color = progressColor(ratio);
+    const color = state.paused ? 'var(--muted)' : progressColor(ratio);
     const fill = $('progress-fill');
     fill.style.width = `${ratio * 100}%`;
     fill.style.backgroundColor = color;
     $('progress').style.setProperty('--completion-color', color);
+    $('progress').classList.toggle('is-paused', state.paused);
     const options = $('target-options');
     if (options.dataset.mode !== mode) {
       options.innerHTML = Core.modeInfo(state).targets.map(target => `<button class="target-option" type="button" data-target="${target}" aria-pressed="false">
@@ -365,7 +368,7 @@
       const progress = Math.max(0, Math.min(1, total / target));
       const selected = target === state.target;
       const tone = selected ? color : 'var(--muted)';
-      button.disabled = restorePending || editingLayout;
+      button.disabled = state.paused || restorePending || editingLayout;
       button.setAttribute('aria-pressed', String(selected));
       button.setAttribute('aria-label', `Meta de ${target} células: ${total} contadas, ${Math.round(progress * 100)}% concluída`);
       button.title = target < total ? `Meta atingida. O total atual de ${total} células excede este alvo.` : `Selecionar meta de ${target} células`;
@@ -723,6 +726,7 @@
   }
 
   function changeTarget(target) {
+    if (state.paused) return;
     const result = Core.setTarget(state, target);
     if (!result.changed) return;
     if (!commit(result.state)) return;
@@ -1162,7 +1166,7 @@
       const button = event.target.closest('.target-option');
       if (!button) return;
       const target = Number(button.dataset.target);
-      if (restorePending || editingLayout || modalOpen() || !Core.modeInfo(state).targets.includes(target) || target === state.target) return;
+      if (state.paused || restorePending || editingLayout || modalOpen() || !Core.modeInfo(state).targets.includes(target) || target === state.target) return;
       if (target < Core.total(state)) { toast(`Você já contou ${Core.total(state)} células. Escolha uma meta igual ou maior que esse total.`); return; }
       if (!Core.complete(state)) { changeTarget(target); return; }
       pendingTarget = target;
@@ -1191,7 +1195,7 @@
     };
     $('theme-select').addEventListener('input', selectTheme);
     $('theme-select').addEventListener('change', selectTheme);
-    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors']]) {
+    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors'], ['wallpaper-setting', 'wallpaper']]) {
       $(id).addEventListener('change', event => { preferences[property] = event.target.checked; savePreferences(); });
     }
     $('volume-setting').addEventListener('input', event => { preferences.volume = Number(event.target.value); savePreferences(); });
@@ -1225,12 +1229,6 @@
     window.addEventListener('focus', () => { windowFocused = true; updateFocusShield(); });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState !== 'hidden' && typeof document.hasFocus === 'function') windowFocused = document.hasFocus();
-      updateFocusShield();
-    });
-    $('focus-return').addEventListener('click', event => {
-      event.preventDefault(); event.stopPropagation();
-      window.focus();
-      windowFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
       updateFocusShield();
     });
     window.addEventListener('beforeunload', event => {

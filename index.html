@@ -13,19 +13,22 @@
       if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
     } catch (_) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=2.4.24">
+  <link rel="stylesheet" href="./style.css?v=2.4.36">
   <link rel="stylesheet" href="./color-picker.css?v=2.4.1">
   <link rel="stylesheet" href="./theme-toggle.css?v=2.4.11">
   <link rel="stylesheet" href="./mode-toggle.css?v=2.4.14">
+  <script src="./wallpaper.js?v=2.4.28" defer></script>
+  <script src="./wallpaper-view.js?v=2.4.32" defer></script>
   <script src="./session-names.js?v=2.4.26" defer></script>
   <script src="./counter.js?v=2.4.20" defer></script>
   <script src="./color-picker.js?v=2.4.1" defer></script>
   <script src="./layout.js?v=2.4.1" defer></script>
   <script src="./editor.js?v=2.4.1" defer></script>
   <script src="./session.js?v=2.4.20" defer></script>
-  <script src="./script.js?v=2.4.25" defer></script>
+  <script src="./script.js?v=2.4.33" defer></script>
 </head>
 <body>
+  <div id="app-wallpaper" class="app-wallpaper" aria-hidden="true"></div>
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
@@ -117,7 +120,7 @@
   </div>
 
   <div id="focus-overlay" class="focus-overlay" popover="manual" role="status" aria-live="polite" hidden>
-    <div class="focus-card"><span class="focus-symbol" aria-hidden="true"><svg class="icon"><use href="#i-keyboard"/></svg></span><h2>Janela sem foco</h2><p>Selecione esta janela para continuar usando o contador. As teclas de contagem estão temporariamente bloqueadas.</p><button class="button primary" id="focus-return" type="button">Voltar à janela</button></div>
+    <div class="focus-card"><span class="focus-symbol" aria-hidden="true"><svg class="icon"><use href="#i-attention"/></svg></span><h2>Janela sem foco</h2><p>A contagem está temporariamente bloqueada. Este aviso desaparece automaticamente ao voltar para esta janela ou aba.</p></div>
   </div>
 
   <dialog id="info-dialog" class="modal compact-modal" aria-labelledby="info-title"><div class="modal-header"><h2 id="info-title">Sobre o aplicativo</h2><button class="icon-button" type="button" data-close aria-label="Fechar informações"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body about-body"><span class="eyebrow">CRIAÇÃO E DESENVOLVIMENTO</span><h3 class="author-name">Nikolas Rodrigues Constantino</h3><p class="author-role">Biomédico · Hematologia e desenvolvimento de software</p><p>Contador de células para sangue periférico e medula óssea.</p><div class="author-socials"><a class="button author-instagram" href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas: @niikee_ (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-instagram"/></svg>@niikee_</a><a class="button author-linkedin" href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a></div><p class="about-version">Versão 2.4 · © <span data-copyright-years>2016–2026</span> Nikolas R. Constantino</p></div></dialog>
@@ -227,6 +230,7 @@
         <span id="theme-mode-label" class="theme-mode-label" role="status" aria-live="polite">Automático</span>
       </div>
     </div>
+    <label class="setting-row" for="wallpaper-setting"><span>Papel de parede dinâmico<small>Textura suave que acompanha o horário do dia</small></span><input type="checkbox" id="wallpaper-setting" role="switch"></label>
     <label class="setting-row" for="progress-colors-setting"><span>Cor conforme o progresso<small>Vermelho, amarelo, azul e verde até concluir</small></span><input type="checkbox" id="progress-colors-setting" role="switch"></label>
     <label class="setting-row" for="sound-setting"><span>Sons<small>Ativar retorno sonoro</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
     <label class="setting-row" for="count-sound-setting"><span>Som a cada registro<small>Tons diferentes para adicionar e corrigir</small></span><input type="checkbox" id="count-sound-setting" role="switch"></label>
