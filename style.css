@@ -105,9 +105,10 @@ h3 { font-size: 15px; font-weight: 650; }
 .target-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); flex: 1; min-width: 0; gap: 6px; }
 .target-option { min-width: 0; padding: 3px 2px 4px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: var(--ink); transition: background .15s,border-color .15s; }
 .target-option:hover:not(:disabled) { background: var(--soft); border-color: var(--line); }
-.target-option[aria-pressed="true"] { background: var(--tint); border-color: var(--accent); }
+.target-option[aria-pressed="true"], .target-option[aria-pressed="true"]:hover { background: var(--tint); border-color: var(--accent); }
 .target-option:disabled { cursor: default; opacity: .55; }
-.target-gauge { display: block; position: relative; width: 43px; max-width: 100%; aspect-ratio: 100 / 96; margin-inline: auto; }
+.target-gauge { display: block; position: relative; width: 43px; max-width: 100%; aspect-ratio: 100 / 96; margin-inline: auto; transform-origin: center; transition: transform .22s cubic-bezier(.2,.7,.2,1); }
+.target-option[aria-pressed="true"] .target-gauge { transform: translateY(6px) scale(1.2); }
 .target-gauge svg { display: block; width: 100%; height: 100%; fill: none; stroke-width: 8; stroke-linecap: round; }
 .target-arc-track { stroke: var(--track); stroke: color-mix(in srgb,var(--completion-color,var(--accent)) 25%,var(--surface)); transition: stroke .3s ease; }
 .target-arc-fill { stroke-dasharray: 100; stroke-dashoffset: 100; transition: stroke-dashoffset .16s ease,stroke .3s ease; }
@@ -116,8 +117,8 @@ h3 { font-size: 15px; font-weight: 650; }
 .target-count[data-digits="4"] { font-size: 11px; }
 .target-goal { top: 94%; font-size: 8px; font-weight: 650; color: var(--muted); }
 .target-option[aria-pressed="true"] .target-goal { color: var(--accent); }
-.target-choice-label { display: block; margin-top: 2px; font-size: 9px; line-height: 1.2; color: var(--muted); }
-.target-option[aria-pressed="true"] .target-choice-label { color: var(--accent); font-weight: 650; }
+.target-choice-label { display: block; margin-top: 2px; font-size: 9px; line-height: 1.2; color: var(--muted); transition: opacity .12s ease,visibility .12s; }
+.target-option[aria-pressed="true"] .target-choice-label { opacity: 0; visibility: hidden; }
 @media (min-width: 541px) {
   .progress-actions { flex-direction: row; }
 }
