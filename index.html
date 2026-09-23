@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="./color-picker.css?v=2.4.1">
   <link rel="stylesheet" href="./theme-toggle.css?v=2.4.11">
   <link rel="stylesheet" href="./mode-toggle.css?v=2.4.14">
-  <script src="./session-names.js?v=2.4.20" defer></script>
+  <script src="./session-names.js?v=2.4.26" defer></script>
   <script src="./counter.js?v=2.4.20" defer></script>
   <script src="./color-picker.js?v=2.4.1" defer></script>
   <script src="./layout.js?v=2.4.1" defer></script>
@@ -145,7 +145,7 @@
   </dialog>
 
   <dialog id="summary-dialog" class="modal summary-modal" aria-labelledby="summary-title">
-    <div class="modal-header"><div><span class="eyebrow" id="summary-mode">Sangue periférico</span><h2 id="summary-title">Resumo parcial</h2><p class="summary-session"><span>Sessão <strong id="summary-session-name"></strong></span><small>ID <span id="summary-session-id"></span></small></p></div><button class="icon-button" type="button" data-close aria-label="Fechar resumo"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="modal-header"><div><span class="eyebrow" id="summary-mode">Sangue periférico</span><h2 id="summary-title">Resumo parcial</h2><p class="summary-session"><span>Sessão <strong id="summary-session-name"></strong></span><small><span id="summary-session-id"></span></small></p></div><button class="icon-button" type="button" data-close aria-label="Fechar resumo"><svg class="icon"><use href="#i-close"/></svg></button></div>
     <div class="modal-body"><div class="summary-meta"><strong id="summary-total"></strong><span id="summary-target"></span></div><table class="results-table"><thead><tr><th scope="col">Célula</th><th scope="col">Contagem</th><th scope="col">%</th></tr></thead><tbody id="summary-rows"></tbody></table><div id="summary-excluded"></div><p class="field-help" id="summary-note"></p><div id="copy-fallback" hidden><label for="report-text">Selecione e copie o resultado</label><textarea id="report-text" readonly rows="9"></textarea></div><p id="copy-status" class="inline-status" role="status"></p></div>
     <div class="modal-footer"><button class="button" id="download-csv" type="button"><svg class="icon"><use href="#i-download"/></svg>Baixar CSV</button><button class="button primary" id="copy-result" type="button"><svg class="icon"><use href="#i-copy"/></svg>Copiar resultado</button></div>
   </dialog>

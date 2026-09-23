@@ -1,4 +1,4 @@
-/* Mesmos catálogos de rótulos neutros usados pelo aplicativo para macOS. */
+/* Rótulos neutros: adjetivos do aplicativo para macOS e substantivos de natureza. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.CellSessionNames = factory();
@@ -36,6 +36,51 @@
     'halcyon', 'transient', 'fleeting', 'enduring', 'perennial', 'timeless'
   ]);
   const nouns = Object.freeze([
+    // Paisagens e lugares naturais.
+    'mountain', 'valley', 'hill', 'peak', 'ridge', 'cliff',
+    'canyon', 'cave', 'field', 'meadow', 'forest', 'woodland',
+    'grove', 'garden', 'park', 'island', 'coast', 'shore',
+    // Rios, lagos e mar.
+    'river', 'stream', 'brook', 'creek', 'lake', 'pond',
+    'spring', 'waterfall', 'lagoon', 'laguna', 'ocean', 'sea',
+    'bay', 'gulf', 'inlet', 'cove', 'beach', 'reef',
+    // Elementos marítimos.
+    'wave', 'tide', 'surf', 'current', 'foam', 'ripple',
+    'coral', 'shell', 'pearl', 'sand', 'dune', 'harbor',
+    'port', 'dock', 'pier', 'sail', 'boat', 'anchor',
+    // Vida marinha.
+    'whale', 'dolphin', 'seal', 'otter', 'turtle', 'crab',
+    'lobster', 'shrimp', 'oyster', 'clam', 'mussel', 'squid',
+    'octopus', 'starfish', 'seahorse', 'shark', 'ray', 'salmon',
+    // Plantas e suas formas.
+    'tree', 'leaf', 'flower', 'petal', 'bud', 'seed',
+    'root', 'branch', 'bark', 'grass', 'moss', 'fern',
+    'reed', 'vine', 'bamboo', 'ivy', 'palm', 'pine',
+    // Árvores e flores.
+    'oak', 'maple', 'willow', 'cedar', 'birch', 'elm',
+    'ash', 'beech', 'poplar', 'aspen', 'spruce', 'fir',
+    'rose', 'lily', 'lotus', 'daisy', 'tulip', 'orchid',
+    // Céu e clima.
+    'sun', 'moon', 'star', 'cloud', 'rain', 'snow',
+    'frost', 'mist', 'fog', 'breeze', 'wind', 'storm',
+    'thunder', 'rainbow', 'dew', 'sunrise', 'sunset', 'sky',
+    // Pedras e algumas referências celestes familiares.
+    'rock', 'stone', 'pebble', 'crystal', 'quartz', 'opal',
+    'amber', 'jade', 'ruby', 'onyx', 'granite', 'marble',
+    'vega', 'sirius', 'orion', 'lyra', 'aurora', 'eclipse',
+    // Árvores e frutíferas conhecidas.
+    'apple', 'cherry', 'peach', 'lemon', 'orange', 'olive',
+    'coconut', 'eucalyptus', 'sequoia', 'redwood', 'acacia', 'jacaranda',
+    // Flores familiares.
+    'sunflower', 'lavender', 'jasmine', 'violet', 'iris', 'poppy',
+    'peony', 'azalea', 'camellia', 'dahlia', 'hibiscus', 'magnolia',
+    // Ervas e outras plantas do cotidiano.
+    'mint', 'basil', 'rosemary', 'sage', 'thyme', 'oregano',
+    'parsley', 'aloe', 'cactus', 'clover', 'agave', 'coffee'
+  ]);
+  // Apenas para restaurar sessões anteriores sem trocar seus identificadores.
+  // A geração usa somente o catálogo ativo acima.
+  const legacyNouns = Object.freeze([
     'europa', 'ganymede', 'callisto', 'io', 'titan', 'rhea',
     'iapetus', 'tethys', 'dione', 'mimas', 'enceladus', 'phoebe',
     'miranda', 'ariel', 'umbriel', 'titania', 'oberon', 'triton',
@@ -75,7 +120,7 @@
   const alphabet = '23456789BCDFGHJKMNPQRSTVWXYZ';
   const idPattern = new RegExp(`^[${alphabet}]{3}$`);
   const adjectiveSet = new Set(adjectives);
-  const nounSet = new Set(nouns);
+  const nounSet = new Set([...nouns, ...legacyNouns]);
   const idCapacity = alphabet.length ** 3;
 
   function valid(label) {
