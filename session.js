@@ -5,8 +5,8 @@
 })(typeof window !== 'undefined' ? window : this, function (Core, Layout) {
   'use strict';
   const key = mode => `cellCounterSession_v4_${mode}`;
-  function create(mode = 'blood') {
-    const state = Core.create(undefined, [], mode);
+  function create(mode = 'blood', sessionLabel) {
+    const state = Core.create(undefined, [], mode, [], {}, undefined, sessionLabel);
     return { version: 1, state, layout: Layout.sync(null, state) };
   }
   function restore(data, mode) {

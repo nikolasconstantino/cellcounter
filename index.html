@@ -13,14 +13,17 @@
       if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
     } catch (_) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=2.4.7">
+  <link rel="stylesheet" href="./style.css?v=2.4.24">
   <link rel="stylesheet" href="./color-picker.css?v=2.4.1">
-  <script src="./counter.js?v=2.4.1" defer></script>
+  <link rel="stylesheet" href="./theme-toggle.css?v=2.4.11">
+  <link rel="stylesheet" href="./mode-toggle.css?v=2.4.14">
+  <script src="./session-names.js?v=2.4.20" defer></script>
+  <script src="./counter.js?v=2.4.20" defer></script>
   <script src="./color-picker.js?v=2.4.1" defer></script>
   <script src="./layout.js?v=2.4.1" defer></script>
   <script src="./editor.js?v=2.4.1" defer></script>
-  <script src="./session.js?v=2.4.1" defer></script>
-  <script src="./script.js?v=2.4.1" defer></script>
+  <script src="./session.js?v=2.4.20" defer></script>
+  <script src="./script.js?v=2.4.25" defer></script>
 </head>
 <body>
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
@@ -35,14 +38,13 @@
     <symbol id="i-summary" viewBox="0 0 24 24"><path d="M8 3h8l4 4v14H4V3h4Zm8 0v5h4M8 12h8M8 16h5"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 17v4h14v-4"/></symbol>
-    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
-    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 4 5 9H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></symbol>
     <symbol id="i-muted" viewBox="0 0 24 24"><path d="M11 4 5 9H2v6h3l6 5Zm5 5 6 6m0-6-6 6"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6m-6 0v6"/></symbol>
     <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17h7m-3.5-3.5v7"/></symbol>
     <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 5 2c-1 .6-2 1-2 3m0 3h.01"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+    <symbol id="i-attention" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 4h.01"/></symbol>
     <symbol id="i-pencil" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7l-5-5L4 14Z"/></symbol>
     <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></symbol>
     <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></symbol>
@@ -55,13 +57,29 @@
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span><span class="brand-title">Contador de Células</span><span class="brand-subtitle">HEMATOLOGIA</span></span>
       </a>
-      <label class="mode-picker"><span class="sr-only">Tipo de contagem</span><select id="mode-select" aria-label="Tipo de contagem"><option value="blood">Sangue periférico</option><option value="marrow">Medula óssea</option></select></label>
       <nav class="header-actions" aria-label="Preferências e ajuda">
-        <button class="icon-button" id="sound-button" type="button" aria-label="Desativar sons" title="Desativar sons" aria-pressed="true"><svg class="icon"><use href="#i-volume"/></svg></button>
-        <button class="icon-button" id="theme-button" type="button" aria-label="Mudar tema" title="Mudar tema"><svg class="icon"><use href="#i-sun"/></svg></button>
-        <button class="icon-button" id="settings-button" type="button" aria-label="Preferências" title="Preferências"><svg class="icon"><use href="#i-settings"/></svg></button>
-        <button class="icon-button" id="help-button" type="button" aria-label="Ajuda e atalhos" title="Ajuda e atalhos"><svg class="icon"><use href="#i-help"/></svg></button>
-        <button class="icon-button" id="info-button" type="button" aria-label="Sobre o aplicativo e o autor" title="Sobre o aplicativo e o autor"><svg class="icon"><use href="#i-info"/></svg></button>
+        <div class="count-mode-and-sound">
+          <div id="mode-control" class="count-mode-control" data-count-mode="blood">
+            <span id="count-mode-label" class="count-mode-label" role="status" aria-live="polite">Sangue periférico</span>
+            <div class="count-mode-switch">
+              <input id="mode-select" class="count-mode-range" type="range" min="0" max="1" step="1" value="0" aria-label="Tipo de contagem" aria-describedby="count-mode-label" aria-valuetext="Sangue periférico">
+              <div class="count-mode-pill" aria-hidden="true">
+                <svg class="count-mode-blood-texture" viewBox="0 0 108 44" fill="none"><ellipse cx="61" cy="12" rx="7" ry="4.5" transform="rotate(-25 61 12)"/><ellipse cx="91" cy="27" rx="7" ry="4.5" transform="rotate(20 91 27)"/><ellipse cx="50" cy="39" rx="7" ry="4.5" transform="rotate(20 50 39)"/></svg>
+                <div class="count-mode-marrow-fill"><svg class="count-mode-marrow-texture" viewBox="0 0 108 44" fill="none"><path d="m3 6 10 6 7-5 9 9-8 10 4 11m-12-25 1 12-10 7m10-7 7 2 14 1 6-13 11-6m-11 6 9 12-8 13m8-13 10 4 8-7-3-13 12-5m-12 5L54 3m14 20 14 8-2 11m2-11 11-14 12 1m-12-1L89 4"/><g><circle cx="8" cy="20" r="1.8"/><circle cx="29" cy="7" r="2"/><circle cx="32" cy="34" r="1.6"/><circle cx="47" cy="6" r="1.5"/><circle cx="57" cy="37" r="1.8"/><circle cx="77" cy="17" r="2.3"/><circle cx="99" cy="34" r="1.8"/></g></svg></div>
+                <div class="count-mode-orb">
+                  <svg class="count-mode-erythrocyte" viewBox="0 0 36 36"><defs><radialGradient id="mode-rbc-fill" cx="45%" cy="42%" r="59%"><stop offset="0" stop-color="#f6a18f"/><stop offset=".32" stop-color="#ef827a"/><stop offset=".58" stop-color="#e4535c"/><stop offset=".79" stop-color="#cd3b4d"/><stop offset="1" stop-color="#b82b40"/></radialGradient></defs><circle cx="18" cy="18" r="16.5" fill="url(#mode-rbc-fill)" stroke="#f0777a" stroke-width=".9"/><ellipse cx="17" cy="16.5" rx="6.2" ry="5.4" fill="#ffc1ad" opacity=".32"/><path d="M7.2 11a13.2 13.2 0 0 1 19-4" fill="none" stroke="#ffb2a4" stroke-width="1.5" stroke-linecap="round" opacity=".65"/><path d="M27 27a12.5 12.5 0 0 1-16 2" fill="none" stroke="#9d2239" stroke-width="1.3" stroke-linecap="round" opacity=".45"/></svg>
+                  <svg class="count-mode-bone" viewBox="0 0 36 36"><path d="M18 1.5c9-.3 16.3 6.8 16.5 15.5.3 9.5-6 16.8-15.4 17.5C9.6 35.3 1.6 28.4 1.5 19 1.4 9.9 8.5 1.8 18 1.5Z" fill="#fff7e4" stroke="#d6c8ad" stroke-width="1"/><path d="M18 5.3c7.2-.2 12.7 5.2 12.9 12.2.2 7.2-4.8 13-12 13.5-7.5.5-13.9-4.8-14-12.2-.1-7.1 5.5-13.3 13.1-13.5Z" fill="#e6cfb0"/><path d="M18.4 8c5.3 0 10 4.3 10 9.8.1 5.8-4 10.3-9.6 10.6-5.8.4-10.8-3.9-10.9-9.6C7.8 13.1 12.2 8 18.4 8Z" fill="#884454"/><path d="m13 10 3 6-5 5m5-5 7-4m-7 4 3 8 7-3m-7 3-5 3m9-15 2 5-6 7" fill="none" stroke="#d8a994" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="20" cy="11.5" r="1.2" fill="#bd7880"/><circle cx="12.5" cy="16" r="1.2" fill="#622d42"/><circle cx="23.5" cy="24.5" r="1.3" fill="#622d42"/><circle cx="18.5" cy="20" r="1.1" fill="#c98787"/><path d="M7 10.5A14 14 0 0 1 21 4" fill="none" stroke="#fffdf4" stroke-width="1.7" stroke-linecap="round"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <button class="icon-button" id="sound-button" type="button" aria-label="Desativar sons" title="Desativar sons" aria-pressed="true"><svg class="icon"><use href="#i-volume"/></svg></button>
+        </div>
+        <div class="header-utilities">
+          <button class="icon-button" id="settings-button" type="button" aria-label="Preferências" title="Preferências"><svg class="icon"><use href="#i-settings"/></svg></button>
+          <button class="icon-button" id="help-button" type="button" aria-label="Ajuda e atalhos" title="Ajuda e atalhos"><svg class="icon"><use href="#i-help"/></svg></button>
+          <button class="icon-button" id="info-button" type="button" aria-label="Sobre o aplicativo e o autor" title="Sobre o aplicativo e o autor"><svg class="icon"><use href="#i-info"/></svg></button>
+        </div>
       </nav>
     </header>
 
@@ -80,7 +98,7 @@
       </section>
 
       <section class="count-section" id="counting" aria-labelledby="count-title">
-        <div class="section-toolbar"><div><h1 id="count-title">Contagem diferencial</h1><p class="section-hint" id="count-hint">Toque para contar <span aria-hidden="true">·</span> <span class="keyboard-hint">Use as teclas indicadas</span></p><p class="section-hint edit-hint" id="edit-hint" hidden>Arraste para mover. Clique na tecla para editar nome, atalho e cor.</p></div>
+        <div class="section-toolbar"><div class="section-identity"><div class="count-heading"><h1 id="count-title">Contagem diferencial</h1><span class="session-reference"><button class="session-name-help" id="session-name-help" type="button" aria-label="Entender o nome da sessão" aria-haspopup="dialog" aria-controls="session-name-dialog" title="Entender o nome da sessão"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg></button><span class="session-name" id="session-name" title="Nome automático desta sessão"></span><small class="session-code" id="session-code" title="Código desta sessão"></small></span></div><p class="section-hint" id="count-hint">Toque para contar <span aria-hidden="true">·</span> <span class="keyboard-hint">Use as teclas indicadas</span></p><p class="section-hint edit-hint" id="edit-hint" hidden>Arraste para mover. Clique na tecla para editar nome, atalho e cor.</p></div>
           <div class="toolbar-buttons" id="count-controls"><button class="button" id="edit-button" type="button"><svg class="icon"><use href="#i-layout"/></svg><span>Editar células</span></button><button class="button" id="undo-button" type="button" disabled title="Desfazer última ação (Ctrl ou ⌘ + Z)"><svg class="icon"><use href="#i-undo"/></svg><span>Desfazer</span></button><button class="button" id="summary-button" type="button"><svg class="icon"><use href="#i-summary"/></svg><span>Resumo</span></button></div>
           <div class="toolbar-buttons editor-controls" id="editor-controls" hidden><button class="button" id="groups-button" type="button">Grupos e cores</button><button class="button" id="restore-layout-button" type="button">Restaurar padrão</button><button class="button primary" id="finish-edit-button" type="button"><svg class="icon"><use href="#i-check"/></svg>Concluir edição</button></div>
         </div>
@@ -91,21 +109,43 @@
       <section class="completion-banner" id="completion-banner" hidden aria-labelledby="completion-title"><div class="completion-icon"><svg class="icon"><use href="#i-check"/></svg></div><div><h2 id="completion-title">Contagem concluída</h2><p>O resultado está pronto. Você ainda pode corrigir os valores.</p></div><button class="button primary" id="completion-summary" type="button">Ver resultado</button></section>
 
       <div class="session-toolbar">
-        <div class="session-status"><span id="save-indicator" class="save-indicator"></span><span id="save-label">Salvamento automático neste navegador</span><button class="text-button" id="retry-save" type="button" hidden>Tentar novamente</button></div>
+        <div class="session-status"><a class="storage-help" id="storage-help" href="#storage-info-dialog" aria-haspopup="dialog" aria-controls="storage-info-dialog" title="Entender o armazenamento temporário"><svg id="save-indicator" class="icon save-indicator" aria-hidden="true"><use href="#i-attention"/></svg><span id="save-label">Salvamento automático neste navegador</span></a><button class="text-button" id="retry-save" type="button" hidden>Tentar novamente</button></div>
         <div class="target-selector"><span class="eyebrow" id="target-options-label">META DE CONTAGEM</span><div class="target-options" id="target-options" role="group" aria-labelledby="target-options-label"></div></div>
       </div>
     </main>
-    <footer class="app-footer"><span>© 2026 Nikolas R. Constantino <a href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas"><svg class="icon"><use href="#i-instagram"/></svg></a><a href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas"><svg class="icon"><use href="#i-linkedin"/></svg></a></span><span class="footer-shortcut"><svg class="icon"><use href="#i-keyboard"/></svg><kbd>Shift</kbd> + tecla para corrigir <span class="version">v2.4</span></span></footer>
+    <footer class="app-footer"><span><span>© <span data-copyright-years>2016–2026</span> Nikolas R. Constantino</span> <a href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas"><svg class="icon"><use href="#i-instagram"/></svg></a><a href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas"><svg class="icon"><use href="#i-linkedin"/></svg></a></span><span class="footer-shortcut"><svg class="icon"><use href="#i-keyboard"/></svg><kbd>Shift</kbd> + tecla para corrigir <span class="version">v2.4</span></span></footer>
   </div>
 
   <div id="focus-overlay" class="focus-overlay" popover="manual" role="status" aria-live="polite" hidden>
     <div class="focus-card"><span class="focus-symbol" aria-hidden="true"><svg class="icon"><use href="#i-keyboard"/></svg></span><h2>Janela sem foco</h2><p>Selecione esta janela para continuar usando o contador. As teclas de contagem estão temporariamente bloqueadas.</p><button class="button primary" id="focus-return" type="button">Voltar à janela</button></div>
   </div>
 
-  <dialog id="info-dialog" class="modal compact-modal" aria-labelledby="info-title"><div class="modal-header"><h2 id="info-title">Sobre o aplicativo</h2><button class="icon-button" type="button" data-close aria-label="Fechar informações"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body about-body"><span class="eyebrow">CRIAÇÃO E DESENVOLVIMENTO</span><h3 class="author-name">Nikolas Rodrigues Constantino</h3><p class="author-role">Biomédico · Hematologia e desenvolvimento de software</p><p>Contador de células para sangue periférico e medula óssea.</p><div class="author-socials"><a class="button author-instagram" href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas: @niikee_ (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-instagram"/></svg>@niikee_</a><a class="button author-linkedin" href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a></div><p class="about-version">Versão 2.4 · © 2026 Nikolas R. Constantino</p></div></dialog>
+  <dialog id="info-dialog" class="modal compact-modal" aria-labelledby="info-title"><div class="modal-header"><h2 id="info-title">Sobre o aplicativo</h2><button class="icon-button" type="button" data-close aria-label="Fechar informações"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body about-body"><span class="eyebrow">CRIAÇÃO E DESENVOLVIMENTO</span><h3 class="author-name">Nikolas Rodrigues Constantino</h3><p class="author-role">Biomédico · Hematologia e desenvolvimento de software</p><p>Contador de células para sangue periférico e medula óssea.</p><div class="author-socials"><a class="button author-instagram" href="https://www.instagram.com/niikee_/" target="_blank" rel="noopener noreferrer" aria-label="Instagram de Nikolas: @niikee_ (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-instagram"/></svg>@niikee_</a><a class="button author-linkedin" href="https://www.linkedin.com/in/nikconstantino/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn de Nikolas (abre em nova aba)"><svg class="icon" aria-hidden="true"><use href="#i-linkedin"/></svg>LinkedIn</a></div><p class="about-version">Versão 2.4 · © <span data-copyright-years>2016–2026</span> Nikolas R. Constantino</p></div></dialog>
+
+  <dialog id="session-name-dialog" class="modal compact-modal guidance-modal" aria-labelledby="session-name-title" aria-describedby="session-name-intro">
+    <div class="modal-header"><h2 id="session-name-title">Por que este nome é automático?</h2><button class="icon-button" type="button" data-close aria-label="Fechar explicação do nome da sessão"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="modal-body guidance-body">
+      <p id="session-name-intro">Este nome aleatório é uma referência anônima para reconhecer sua contagem e o resumo correspondente. Ele identifica a sessão, sem usar dados de pacientes.</p>
+      <p>O nome permanece ao retomar a sessão e muda a cada nova contagem. Use-o apenas para se orientar durante o trabalho.</p>
+      <p>A edição manual é bloqueada para evitar nomes, CPF, números de prontuário e outros dados que identifiquem pessoas, protegidos pela Lei Geral de Proteção de Dados Pessoais (LGPD).</p>
+      <p class="guidance-callout">O nome automático não anonimiza informações inseridas em outros campos. Não inclua dados pessoais nos nomes de células ou grupos.</p>
+    </div>
+    <div class="modal-footer"><button class="button primary" type="button" data-close>Entendi</button></div>
+  </dialog>
+
+  <dialog id="storage-info-dialog" class="modal compact-modal guidance-modal" aria-labelledby="storage-info-title" aria-describedby="storage-info-intro">
+    <div class="modal-header"><h2 id="storage-info-title">Atenção: armazenamento temporário</h2><button class="icon-button" type="button" data-close aria-label="Fechar aviso de armazenamento"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="modal-body guidance-body">
+      <p id="storage-info-intro">A sessão fica salva somente neste navegador, perfil e dispositivo, para você retomar a contagem. É um apoio temporário, não um arquivo permanente ou uma cópia de segurança.</p>
+      <p>Os dados podem desaparecer sem aviso: ao limpar os dados do site, encerrar uma janela privada, redefinir o perfil ou quando o navegador libera espaço.</p>
+      <p>Para reduzir a exposição de informações, não insira dados de pacientes e proteja o acesso ao seu perfil do navegador.</p>
+      <p class="guidance-callout">Para conservar o resultado, copie o resumo ou baixe o CSV e guarde-o em um local adequado e protegido. Não há sincronização nem backup automático.</p>
+    </div>
+    <div class="modal-footer"><button class="button primary" type="button" data-close>Entendi</button></div>
+  </dialog>
 
   <dialog id="summary-dialog" class="modal summary-modal" aria-labelledby="summary-title">
-    <div class="modal-header"><div><span class="eyebrow" id="summary-mode">Sangue periférico</span><h2 id="summary-title">Resumo parcial</h2></div><button class="icon-button" type="button" data-close aria-label="Fechar resumo"><svg class="icon"><use href="#i-close"/></svg></button></div>
+    <div class="modal-header"><div><span class="eyebrow" id="summary-mode">Sangue periférico</span><h2 id="summary-title">Resumo parcial</h2><p class="summary-session"><span>Sessão <strong id="summary-session-name"></strong></span><small>ID <span id="summary-session-id"></span></small></p></div><button class="icon-button" type="button" data-close aria-label="Fechar resumo"><svg class="icon"><use href="#i-close"/></svg></button></div>
     <div class="modal-body"><div class="summary-meta"><strong id="summary-total"></strong><span id="summary-target"></span></div><table class="results-table"><thead><tr><th scope="col">Célula</th><th scope="col">Contagem</th><th scope="col">%</th></tr></thead><tbody id="summary-rows"></tbody></table><div id="summary-excluded"></div><p class="field-help" id="summary-note"></p><div id="copy-fallback" hidden><label for="report-text">Selecione e copie o resultado</label><textarea id="report-text" readonly rows="9"></textarea></div><p id="copy-status" class="inline-status" role="status"></p></div>
     <div class="modal-footer"><button class="button" id="download-csv" type="button"><svg class="icon"><use href="#i-download"/></svg>Baixar CSV</button><button class="button primary" id="copy-result" type="button"><svg class="icon"><use href="#i-copy"/></svg>Copiar resultado</button></div>
   </dialog>
@@ -170,7 +210,23 @@
   <dialog id="layout-reset-dialog" class="modal compact-modal" aria-labelledby="layout-reset-title"><div class="modal-header"><h2 id="layout-reset-title">Restaurar organização?</h2><button class="icon-button" data-close type="button" aria-label="Fechar"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body"><p>As posições e as teclas voltarão à organização sugerida. Os nomes editados, suas células personalizadas e os valores contados serão mantidos. Células excluídas não serão restauradas.</p></div><div class="modal-footer"><button class="button" data-close type="button">Cancelar</button><button class="button primary" id="confirm-reset-layout" type="button">Restaurar</button></div></dialog>
 
   <dialog id="settings-dialog" class="modal compact-modal" aria-labelledby="settings-title"><div class="modal-header"><h2 id="settings-title">Preferências</h2><button class="icon-button" data-close type="button" aria-label="Fechar preferências"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="modal-body settings-body">
-    <label class="setting-row" for="theme-select"><span>Tema<small>Aparência da interface</small></span><select id="theme-select"><option value="system">Automático</option><option value="light">Claro</option><option value="dark">Escuro</option></select></label>
+    <div class="setting-row theme-setting">
+      <span><label id="theme-setting-label" for="theme-select">Tema</label><small>Aparência da interface</small></span>
+      <div id="theme-control" class="theme-control" data-theme-mode="system">
+        <input id="theme-select" class="theme-range" type="range" min="0" max="2" step="1" value="1" aria-labelledby="theme-setting-label" aria-describedby="theme-mode-label" aria-valuetext="Automático">
+        <div class="theme-pill" aria-hidden="true">
+          <svg class="theme-clouds" viewBox="0 0 176 54" fill="none"><path d="M2 40h39a7 7 0 0 0-6-11 11 11 0 0 0-21-3A8 8 0 0 0 2 40Z"/><path d="M108 17h37a6 6 0 0 0-5-10 9 9 0 0 0-17-1 8 8 0 0 0-15 11Z"/><path d="M129 51h48V37a9 9 0 0 0-13-7 12 12 0 0 0-23 6 8 8 0 0 0-12 15Z"/></svg>
+          <div class="theme-night"><svg class="theme-stars" viewBox="0 0 176 54" fill="currentColor"><circle cx="19" cy="14" r="1.2"/><circle cx="36" cy="39" r="1"/><circle cx="57" cy="18" r="1.4"/><circle cx="75" cy="40" r="1.1"/><circle cx="97" cy="13" r="1"/><circle cx="112" cy="37" r="1.3"/><circle cx="142" cy="12" r="1"/><circle cx="161" cy="37" r="1"/><path d="m38 9 1.2 3.1 3.1 1.2-3.1 1.2L38 18l-1.2-3.5-3.1-1.2 3.1-1.2ZM125 19l1.1 3.1 3.1 1.1-3.1 1.1-1.1 3.1-1.1-3.1-3.1-1.1 3.1-1.1Z"/></svg></div>
+          <svg class="theme-end-icons" viewBox="0 0 176 54" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="27" cy="27" r="4"/><path d="M27 18v2m0 14v2m9-9h-2m-14 0h-2m15.4-6.4L32 22m-10 10-1.4 1.4m12.8 0L32 32M22 22l-1.4-1.4"/><path d="M154 19a8.5 8.5 0 1 0 5 13.5A8.5 8.5 0 0 1 154 19Z"/></svg>
+          <div class="theme-orb">
+            <svg class="theme-orb-sun" viewBox="0 0 44 44"><circle cx="22" cy="22" r="14" fill="#ffdb70"/><g stroke="#ffdb70" stroke-width="2.6" stroke-linecap="round"><path d="M22 1.5v3m0 35v3M1.5 22h3m35 0h3M7.5 7.5l2.2 2.2m24.6 24.6 2.2 2.2m0-29-2.2 2.2M9.7 34.3l-2.2 2.2"/></g><circle cx="18" cy="17" r="8" fill="#ffe795" opacity=".32"/></svg>
+            <svg class="theme-orb-moon" viewBox="0 0 44 44"><path d="M29 3a19.5 19.5 0 1 0 12 28A19.5 19.5 0 0 1 29 3Z" fill="#e9eff5"/><circle cx="11" cy="22" r="2.7" fill="#c4d2e0"/><circle cx="22" cy="34" r="2" fill="#c4d2e0"/><circle cx="11" cy="31" r="1.2" fill="#c4d2e0"/></svg>
+            <svg class="theme-orb-auto" viewBox="0 0 44 44"><defs><clipPath id="theme-sun-half"><path d="M0 0h22v44H0Z"/></clipPath></defs><circle cx="22" cy="22" r="17" fill="#e9eff5"/><g clip-path="url(#theme-sun-half)"><circle cx="22" cy="22" r="17" fill="#ffdb70"/><path d="M22 1v2M1 22h2M7.2 7.2l1.5 1.5M8.7 35.3l-1.5 1.5m14.8 4v2" fill="none" stroke="#ffdb70" stroke-width="2.5" stroke-linecap="round"/></g><circle cx="31" cy="19" r="3" fill="#c4d2e0"/><circle cx="27" cy="30" r="2" fill="#c4d2e0"/><circle cx="29" cy="10" r="1.2" fill="#c4d2e0"/></svg>
+          </div>
+        </div>
+        <span id="theme-mode-label" class="theme-mode-label" role="status" aria-live="polite">Automático</span>
+      </div>
+    </div>
     <label class="setting-row" for="progress-colors-setting"><span>Cor conforme o progresso<small>Vermelho, amarelo, azul e verde até concluir</small></span><input type="checkbox" id="progress-colors-setting" role="switch"></label>
     <label class="setting-row" for="sound-setting"><span>Sons<small>Ativar retorno sonoro</small></span><input type="checkbox" id="sound-setting" role="switch"></label>
     <label class="setting-row" for="count-sound-setting"><span>Som a cada registro<small>Tons diferentes para adicionar e corrigir</small></span><input type="checkbox" id="count-sound-setting" role="switch"></label>

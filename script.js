@@ -4,11 +4,13 @@
   const Core = window.CellCounter;
   const Layout = window.CellLayout;
   const Session = window.CellSession;
+  const SessionNames = window.CellSessionNames;
   const PREVIOUS_STORAGE = 'cellCounterState_v3';
   const LEGACY_STORAGE = 'cellCounterState_v2';
   const PREFS_STORAGE = 'cellCounterPrefs_v3';
   const PREVIOUS_LAYOUT = 'cellCounterLayout_v1';
   const MODE_STORAGE = 'cellCounterMode_v1';
+  const countingModes = ['blood', 'marrow'];
   let mode = 'blood';
   let storageKey = Session.key(mode);
   const sessionCache = new Map();
@@ -16,6 +18,11 @@
   const cells = new Map();
   const dialogs = [...document.querySelectorAll('dialog')];
   const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true };
+  const themeChoices = [
+    { value: 'light', label: 'Claro' },
+    { value: 'system', label: 'Automático' },
+    { value: 'dark', label: 'Escuro' }
+  ];
   let preferences = { ...defaults };
   let state = Core.create();
   let layout = Layout.create();
@@ -31,6 +38,8 @@
   let focusShieldVisible = false;
   let deletingCell = null;
   let gridFrame = null;
+  let nameFitSignature = '';
+  let nameMeasureContext;
   let lastStoredRaw = null;
   let restorePending = false;
   let restoreError = false;
@@ -62,14 +71,77 @@
     gridFrame = null;
     document.documentElement.style.setProperty('--progress-panel-height', `${$('progress').closest('.progress-panel').getBoundingClientRect().height}px`);
     const grid = $('cell-grid');
-    if (window.innerWidth < 800) { delete grid.dataset.density; return; }
     const rect = grid.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
-    const spec = Layout.gridSpec(layout.order.length + (editingLayout ? 1 : 0), rect.width, rect.height);
-    grid.style.setProperty('--layout-columns', spec.columns);
-    grid.style.setProperty('--layout-rows', spec.rows);
-    grid.style.setProperty('--layout-gap', `${spec.gap}px`);
-    grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
+    if (window.innerWidth < 800) delete grid.dataset.density;
+    else {
+      const spec = Layout.gridSpec(layout.order.length + (editingLayout ? 1 : 0), rect.width, rect.height);
+      grid.style.setProperty('--layout-columns', spec.columns);
+      grid.style.setProperty('--layout-rows', spec.rows);
+      grid.style.setProperty('--layout-gap', `${spec.gap}px`);
+      grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
+    }
+    fitCellNames(grid, rect);
+  }
+
+  function fitCellNames(grid, rect) {
+    if (!cells.size) return;
+    if (nameMeasureContext === undefined) nameMeasureContext = document.createElement('canvas').getContext?.('2d') || null;
+    if (!nameMeasureContext) return;
+    const signature = [window.innerWidth, window.innerHeight, rect.width, rect.height, grid.dataset.density, editingLayout, cells.size].join('|');
+    if (signature === nameFitSignature) return;
+    const preferred = parseFloat(getComputedStyle(grid).getPropertyValue('--cell-name-preferred-size')) || 14;
+    grid.dataset.nameLayout = 'inline';
+    const measureNames = () => {
+      let size = preferred;
+      for (const cell of cells.values()) {
+        const name = cell.nameLabel;
+        const available = name.clientWidth - 1;
+        if (available <= 0) continue;
+        const style = getComputedStyle(name);
+        nameMeasureContext.font = `${style.fontWeight} ${preferred}px ${style.fontFamily}`;
+        const spacing = parseFloat(style.letterSpacing) || 0;
+        const width = nameMeasureContext.measureText(name.textContent).width + spacing * Math.max(0, [...name.textContent].length - 1);
+        if (width > 0) size = Math.min(size, preferred * available / width);
+      }
+      return size;
+    };
+    let size = measureNames();
+    if (size < preferred * .85 && !editingLayout && !['tight', 'micro'].includes(grid.dataset.density)) {
+      grid.dataset.nameLayout = 'wide';
+      size = measureNames();
+    }
+    // A single size, rounded down, keeps every label complete and visually consistent.
+    for (let pass = 0; pass < 4; pass++) {
+      size = Math.floor(size * 10) / 10;
+      grid.style.setProperty('--cell-name-size', `${size}px`);
+      let ratio = 1;
+      for (const { nameLabel } of cells.values()) {
+        if (nameLabel.clientWidth > 1 && nameLabel.scrollWidth > nameLabel.clientWidth) {
+          ratio = Math.min(ratio, (nameLabel.clientWidth - 1) / nameLabel.scrollWidth);
+        }
+      }
+      if (ratio === 1) break;
+      size *= ratio;
+    }
+    if (grid.dataset.nameLayout === 'wide') {
+      const sizes = [Infinity, Infinity, Infinity, Infinity];
+      for (const { value } of cells.values()) {
+        const style = getComputedStyle(value);
+        const base = parseFloat(style.fontSize) || 29;
+        const available = value.clientWidth - (parseFloat(style.paddingRight) || 0) - 2;
+        if (available <= 0) continue;
+        nameMeasureContext.font = `${style.fontWeight} ${base}px ${style.fontFamily}`;
+        sizes.forEach((size, index) => {
+          const width = nameMeasureContext.measureText('8'.repeat(index + 1)).width;
+          sizes[index] = Math.min(size, base, base * available / width);
+        });
+      }
+      sizes.forEach((size, index) => {
+        if (Number.isFinite(size)) grid.style.setProperty(`--cell-count-size-${index + 1}`, `${Math.floor(size * 10) / 10}px`);
+      });
+    }
+    nameFitSignature = signature;
   }
 
   function scheduleGrid() {
@@ -86,8 +158,24 @@
     } catch (_) { /* As preferências padrão continuam disponíveis. */ }
   }
 
+  function newSessionLabel() {
+    const existing = [state.sessionLabel, ...[...sessionCache.values()].map(cached => cached.state.sessionLabel)];
+    for (const storedMode of countingModes) {
+      try { existing.push(JSON.parse(localStorage.getItem(Session.key(storedMode)))?.state?.sessionLabel); } catch (_) {}
+    }
+    return SessionNames.generate(existing.filter(label => SessionNames.valid(label)));
+  }
+
+  function persistSessionIdentity() {
+    if (restoreError || storageFailed) return;
+    // Salva também sessões vazias e nomes gerados para contagens de versões anteriores.
+    if (Session.serialize(state, layout) !== lastStoredRaw) commit(state);
+    // Um nome inicial sem registros não precisa bloquear a saída se o navegador não puder salvá-lo.
+    if (!state.updatedAt && !Core.hasProgress(state)) dirty = false;
+  }
+
   function loadSession() {
-    ({ state, layout } = Session.create(mode));
+    ({ state, layout } = Session.create(mode, newSessionLabel()));
     storageKey = Session.key(mode);
     restorePending = false; restoreError = false; recoveredExternally = false;
     dirty = false; layoutDirty = false; storageFailed = false;
@@ -107,10 +195,20 @@
       restorePending = Core.hasProgress(state);
       if (restorePending) lastAction = 'Sessão recuperada · escolha continuar ou iniciar outra';
     } catch (_) { storageFailed = true; }
+    finally { persistSessionIdentity(); }
+  }
+
+  function renderModeControl() {
+    const label = Core.modeInfo(mode).name;
+    $('mode-select').value = String(countingModes.indexOf(mode));
+    $('mode-select').disabled = editingLayout;
+    $('mode-select').setAttribute('aria-valuetext', label);
+    $('mode-control').dataset.countMode = mode;
+    $('count-mode-label').textContent = label;
   }
 
   function switchMode(nextMode) {
-    if (!Object.hasOwn(Core.MODES, nextMode) || nextMode === mode || editingLayout || modalOpen()) { $('mode-select').value = mode; return; }
+    if (!Object.hasOwn(Core.MODES, nextMode) || nextMode === mode || editingLayout || modalOpen()) { renderModeControl(); return; }
     editor.cancel(); editor.finishSettling(); finishAudio.pause();
     sessionCache.set(mode, { state, layout, lastStoredRaw, restorePending, restoreError, recoveredExternally,
       dirty, layoutDirty, storageFailed, lastKey, lastAction });
@@ -140,7 +238,7 @@
     editor?.setEnabled(false);
     dialogs.forEach(dialog => { if (dialog.open) dialog.close(); });
     lastStoredRaw = raw;
-    const restored = raw === null ? Session.create(mode) : Session.parse(raw, mode);
+    const restored = raw === null ? Session.create(mode, newSessionLabel()) : Session.parse(raw, mode);
     recoveredExternally = true;
     restoreError = !restored;
     if (restored) ({ state, layout } = restored);
@@ -151,6 +249,7 @@
     layoutDirty = false;
     lastKey = null;
     lastAction = 'A sessão foi alterada em outra aba';
+    persistSessionIdentity();
     render();
     announce('A sessão foi alterada em outra aba. Confira os valores e escolha continuar.');
   }
@@ -204,17 +303,17 @@
     if (preferences.theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = preferences.theme;
     const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && darkPreference.matches);
-    const themeLabel = dark ? 'Usar tema claro' : 'Usar tema escuro';
-    $('theme-button').setAttribute('aria-label', themeLabel);
-    $('theme-button').title = themeLabel;
-    icon($('theme-button'), dark ? 'sun' : 'moon');
     document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#121c19' : '#f4f7f6');
     const soundLabel = preferences.sound ? 'Desativar sons' : 'Ativar sons';
     $('sound-button').setAttribute('aria-label', soundLabel);
     $('sound-button').title = soundLabel;
     $('sound-button').setAttribute('aria-pressed', String(preferences.sound));
     icon($('sound-button'), preferences.sound ? 'volume' : 'muted');
-    $('theme-select').value = preferences.theme;
+    const themePosition = themeChoices.findIndex(choice => choice.value === preferences.theme);
+    $('theme-select').value = String(themePosition);
+    $('theme-select').setAttribute('aria-valuetext', themeChoices[themePosition].label);
+    $('theme-control').dataset.themeMode = preferences.theme;
+    $('theme-mode-label').textContent = themeChoices[themePosition].label;
     $('progress-colors-setting').checked = preferences.progressColors;
     $('sound-setting').checked = preferences.sound;
     $('count-sound-setting').checked = preferences.countSound;
@@ -232,7 +331,7 @@
   function progressColor(ratio) {
     if (!preferences.progressColors) return 'var(--accent)';
     const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && darkPreference.matches);
-    // A mesma escala contínua indica a completude da barra e de cada meta.
+    // A mesma escala contínua indica a completude da barra e da meta selecionada.
     const tones = dark
       ? [[226, 157, 157], [226, 199, 132], [148, 185, 217], [140, 192, 160], [73, 151, 106]]
       : [[226, 164, 163], [232, 206, 139], [151, 193, 222], [156, 204, 172], [46, 112, 81]];
@@ -265,7 +364,7 @@
       const target = Number(button.dataset.target);
       const progress = Math.max(0, Math.min(1, total / target));
       const selected = target === state.target;
-      const tone = progressColor(progress);
+      const tone = selected ? color : 'var(--muted)';
       button.disabled = restorePending || editingLayout;
       button.setAttribute('aria-pressed', String(selected));
       button.setAttribute('aria-label', `Meta de ${target} células: ${total} contadas, ${Math.round(progress * 100)}% concluída`);
@@ -298,6 +397,7 @@
   }
 
   function buildCells(reset = false) {
+    nameFitSignature = '';
     if (reset) {
       for (const cell of cells.values()) cell.slot.remove();
       cells.clear();
@@ -350,7 +450,7 @@
       tile.append(add, remove, keyEdit, deleteButton);
       slot.append(tile);
       $('cell-grid').append(slot);
-      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), deltas: add.querySelector('.cell-deltas') };
+      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, nameLabel: add.querySelector('.cell-name'), keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), deltas: add.querySelector('.cell-deltas') };
       cells.set(definition.key, meta);
       bindCellInput(meta);
     }
@@ -362,9 +462,12 @@
     const blocked = state.paused || restorePending || editingLayout;
     document.body.classList.toggle('editing-layout', editingLayout);
     $('count-title').textContent = editingLayout ? 'Editar células' : mode === 'marrow' ? 'Contagem de medula óssea' : 'Contagem diferencial';
+    $('session-name').textContent = state.sessionLabel.name;
+    $('session-name').setAttribute('aria-label', `Sessão: ${state.sessionLabel.name}`);
+    $('session-code').textContent = state.sessionLabel.shortID;
+    $('session-code').setAttribute('aria-label', `Código da sessão: ${state.sessionLabel.shortID}`);
     $('count-hint').textContent = mode === 'marrow' ? 'N: neutrófilos · Eo: eosinófilos · Ba: basófilos' : 'Toque para contar · Use as teclas indicadas';
-    $('mode-select').value = mode;
-    $('mode-select').disabled = editingLayout;
+    renderModeControl();
     document.body.dataset.mode = mode;
     document.title = `Contador de Células · ${Core.modeInfo(state).name}`;
     $('count-hint').hidden = editingLayout;
@@ -450,6 +553,8 @@
     $('summary-total').textContent = `${n} células`;
     $('summary-target').textContent = `Meta: ${state.target}`;
     $('summary-mode').textContent = Core.modeInfo(state).name;
+    $('summary-session-name').textContent = state.sessionLabel.name;
+    $('summary-session-id').textContent = state.sessionLabel.shortID;
     const row = cell => `<tr class="${state.counts[cell.key] === 0 ? 'is-zero' : ''}"><td>${escapeHTML(cell.name)}</td><td>${state.counts[cell.key]}</td><td>${Core.formatPercent(Core.percentage(state, cell.key))}</td></tr>`;
     $('summary-rows').innerHTML = mode === 'marrow'
       ? Core.series(state).map(group => `<tr class="summary-series-row"><th scope="row">${group.name}</th><td>${group.count}</td><td>${Core.formatPercent(group.percentage)}</td></tr>${group.entries.map(row).join('')}`).join('')
@@ -477,7 +582,11 @@
     const tile = cell.tile;
     if (reducedMotion.matches || typeof tile.animate !== 'function') return;
     const style = getComputedStyle(document.documentElement);
-    tile.animate([{ backgroundColor: style.getPropertyValue(delta > 0 ? '--tint' : '--danger-bg').trim() }, { backgroundColor: getComputedStyle(tile).backgroundColor }], { duration: 160, easing: 'ease-out' });
+    const feedbackColor = delta > 0
+      ? Core.cellColor(state, key) || style.getPropertyValue('--tint').trim()
+      : style.getPropertyValue('--danger-bg').trim();
+    cell.flashAnimation?.cancel();
+    cell.flashAnimation = tile.animate([{ backgroundColor: feedbackColor }, { backgroundColor: getComputedStyle(tile).backgroundColor }], { duration: 160, easing: 'ease-out' });
   }
 
   async function tone(delta, force = false) {
@@ -1004,10 +1113,13 @@
       observer.observe($('progress').closest('.progress-panel'));
     }
     window.addEventListener('resize', scheduleGrid);
+    document.fonts?.ready.then(() => { nameFitSignature = ''; scheduleGrid(); });
   }
 
   function bindControls() {
-    $('mode-select').addEventListener('change', event => switchMode(event.target.value));
+    const selectMode = event => switchMode(countingModes.find((value, index) => String(index) === event.target.value));
+    $('mode-select').addEventListener('input', selectMode);
+    $('mode-select').addEventListener('change', selectMode);
     $('undo-button').addEventListener('click', undo);
     $('pause-button').addEventListener('click', () => {
       if (restorePending || editingLayout || modalOpen()) return;
@@ -1033,7 +1145,7 @@
       if (restoreError) {
         try { localStorage.setItem(`cellCounterRecovery_v4_${mode}`, lastStoredRaw ?? localStorage.getItem(PREVIOUS_STORAGE) ?? localStorage.getItem(LEGACY_STORAGE) ?? ''); } catch (_) {}
       }
-      const next = Core.create(Number($('new-target').value), state.customCells, mode, state.deletedCells, state.cellNames, Core.visualSettings(state));
+      const next = Core.create(Number($('new-target').value), state.customCells, mode, state.deletedCells, state.cellNames, Core.visualSettings(state), newSessionLabel());
       next.updatedAt = new Date().toISOString();
       if (!commit(next)) return;
       restorePending = false;
@@ -1052,7 +1164,7 @@
       const target = Number(button.dataset.target);
       if (restorePending || editingLayout || modalOpen() || !Core.modeInfo(state).targets.includes(target) || target === state.target) return;
       if (target < Core.total(state)) { toast(`Você já contou ${Core.total(state)} células. Escolha uma meta igual ou maior que esse total.`); return; }
-      if (!Core.hasProgress(state)) { changeTarget(target); return; }
+      if (!Core.complete(state)) { changeTarget(target); return; }
       pendingTarget = target;
       $('target-description').textContent = `Alterar a meta de ${state.target} para ${target} células? O total atual é ${Core.total(state)}.`;
       openDialog('target-dialog');
@@ -1067,13 +1179,18 @@
     $('settings-button').addEventListener('click', () => { renderPreferences(); openDialog('settings-dialog'); });
     $('help-button').addEventListener('click', () => openDialog('help-dialog'));
     $('info-button').addEventListener('click', () => openDialog('info-dialog'));
+    for (const [trigger, dialog] of [['session-name-help', 'session-name-dialog'], ['storage-help', 'storage-info-dialog']]) {
+      $(trigger).addEventListener('click', event => { event.preventDefault(); openDialog(dialog); });
+    }
     $('sound-button').addEventListener('click', () => { preferences.sound = !preferences.sound; savePreferences(); toast(preferences.sound ? 'Sons ativados' : 'Sons desativados'); });
-    $('theme-button').addEventListener('click', () => {
-      const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && darkPreference.matches);
-      preferences.theme = dark ? 'light' : 'dark';
+    const selectTheme = event => {
+      const choice = themeChoices.find((theme, index) => String(index) === event.target.value);
+      if (!choice || choice.value === preferences.theme) return;
+      preferences.theme = choice.value;
       savePreferences();
-    });
-    $('theme-select').addEventListener('change', event => { preferences.theme = event.target.value; savePreferences(); });
+    };
+    $('theme-select').addEventListener('input', selectTheme);
+    $('theme-select').addEventListener('change', selectTheme);
     for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors']]) {
       $(id).addEventListener('change', event => { preferences[property] = event.target.checked; savePreferences(); });
     }
@@ -1140,6 +1257,8 @@
   buildCells();
   bindControls();
   bindEditing();
+  const copyrightYears = `2016–${new Date().getFullYear()}`;
+  document.querySelectorAll('[data-copyright-years]').forEach(label => { label.textContent = copyrightYears; });
   document.querySelectorAll('svg.icon').forEach(svg => svg.setAttribute('aria-hidden', 'true'));
   renderPreferences();
   render();

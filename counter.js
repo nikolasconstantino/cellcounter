@@ -3,10 +3,10 @@
  */
 (function (root, factory) {
   'use strict';
-  const api = factory();
+  const api = factory(typeof module === 'object' && module.exports ? require('./session-names.js') : root.CellSessionNames);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CellCounter = api;
-})(typeof window !== 'undefined' ? window : this, function () {
+})(typeof window !== 'undefined' ? window : this, function (SessionNames) {
   'use strict';
 
   const CELLS = Object.freeze([
@@ -140,14 +140,15 @@
       Object.entries(names).every(([id, name]) => catalogCells(state).some(cell => cell.key === id) && validName(name));
   }
 
-  function create(target, customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual) {
+  function create(target, customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual, sessionLabel) {
     if (!Object.hasOwn(MODES, mode)) mode = 'blood';
     const valid = validCatalog(mode, customCells, deletedCells);
     const custom = valid ? copyCustom(customCells) : [];
     const deleted = valid ? [...deletedCells] : [];
     const catalog = { mode, customCells: custom, deletedCells: deleted };
     return {
-      version: 6, mode, target: modeInfo(mode).targets.includes(target) ? target : modeInfo(mode).defaultTarget,
+      version: 7, mode, target: modeInfo(mode).targets.includes(target) ? target : modeInfo(mode).defaultTarget,
+      sessionLabel: SessionNames.valid(sessionLabel) ? { name: sessionLabel.name, shortID: sessionLabel.shortID } : SessionNames.generate(),
       customCells: custom, deletedCells: deleted,
       cellNames: validCellNames({ mode, customCells: custom, deletedCells: deleted }, cellNames) ? { ...cellNames } : {},
       ...visualSettings(validVisual(catalog, visual) ? { ...catalog, ...visual } : catalog),
@@ -263,7 +264,7 @@
   // A sessão é validada antes de qualquer valor salvo entrar na interface.
   // Histórico inválido é descartado, preservando contagens válidas.
   function restore(data) {
-    if (!data || typeof data !== 'object' || ![2, 3, 4, 5, 6].includes(data.version)) return null;
+    if (!data || typeof data !== 'object' || ![2, 3, 4, 5, 6, 7].includes(data.version)) return null;
     if (!data.counts || typeof data.counts !== 'object' || Array.isArray(data.counts)) return null;
     const custom = data.customCells ?? [];
     const mode = data.version >= 4 ? data.mode : 'blood';
@@ -274,7 +275,7 @@
     const visual = data.version >= 6 || Object.hasOwn(data, 'cellGroups') || Object.hasOwn(data, 'cellColors')
       ? { cellGroups: data.cellGroups, cellColors: data.cellColors } : undefined;
     if (visual && !validVisual({ mode, customCells: custom, deletedCells: deleted }, visual)) return null;
-    const state = create(data.version === 2 ? 100 : data.target, custom, mode, deleted, names, visual);
+    const state = create(data.version === 2 ? 100 : data.target, custom, mode, deleted, names, visual, data.sessionLabel);
     if (data.version !== 2 && !modeInfo(state).targets.includes(data.target)) return null;
     for (const cell of allCells(state)) {
       const raw = data.counts[cell.key] ?? (cell.key === 'p' ? data.eritroCount : 0) ?? 0;
@@ -332,6 +333,8 @@
     return [
       `Contador de Células — ${complete(state) ? 'Contagem concluída' : 'Contagem parcial'}`,
       `Modo: ${modeInfo(state).name}`,
+      `Sessão: ${state.sessionLabel.name}`,
+      `ID da sessão: ${state.sessionLabel.shortID}`,
       `Total contado: ${n} | Meta: ${state.target}`, '',
       ...allCells(state).filter(cell => !cell.excluded).map(cell =>
         `${cell.name}: ${state.counts[cell.key]} (${formatPercent(percentage(state, cell.key))}${n ? '%' : ''})`),
@@ -351,7 +354,9 @@
       'Célula;Contagem;Percentual (%);Observação',
       ...allCells(state).map(cell => `${csvText(cell.name)};${state.counts[cell.key]};${cell.excluded || !total(state) ? '' : formatPercent(percentage(state, cell.key))};${cell.excluded ? 'Fora do total diferencial' : ''}`),
       `Total diferencial;${total(state)};;Meta: ${state.target}`,
-      `Modo;;;${modeInfo(state).name}`
+      `Modo;;;${modeInfo(state).name}`,
+      `Sessão;;;${state.sessionLabel.name}`,
+      `ID da sessão;;;${state.sessionLabel.shortID}`
     ].join('\r\n');
   }
 
