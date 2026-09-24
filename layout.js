@@ -151,32 +151,50 @@
     height = Number.isFinite(height) ? Math.max(1, height) : 1;
     let gap = width < 1000 ? 8 : 10;
     const scroll = options?.scroll === true;
+    const maxWidth = 236;
+    const maxHeight = 164;
+    const preferredRatio = maxWidth / maxHeight;
     let best;
-    // Todos os modos usam as mesmas proporções. Compara a área realmente disponível,
-    // evitando fixar sete colunas para catálogos que cabem melhor em duas ou três linhas.
+    // O tamanho de referência é um teto, não uma razão para esticar os cartões.
+    // Compara as divisões possíveis e usa o espaço que cada uma realmente ocupa.
     function choose() {
       for (let columns = 1; columns <= count; columns++) {
         const rows = Math.ceil(count / columns);
-        const gridHeight = scroll ? Math.max(height, rows * 103 + gap * (rows - 1)) : height;
-        const cellWidth = (width - gap * (columns - 1)) / columns;
-        const cellHeight = (gridHeight - gap * (rows - 1)) / rows;
+        const cellWidth = Math.min(maxWidth, (width - gap * (columns - 1)) / columns);
+        const cellHeight = scroll
+          ? Math.min(maxHeight, Math.max(103, cellWidth / preferredRatio))
+          : Math.min(maxHeight, (height - gap * (rows - 1)) / rows);
         if (cellWidth <= 0 || cellHeight <= 0) continue;
+        if (scroll && cellWidth < Math.min(145, width)) continue;
+        const gridHeight = rows * cellHeight + gap * (rows - 1);
+        const unusedWidth = Math.max(0, width - columns * cellWidth - gap * (columns - 1)) / width;
         const emptyFraction = (columns * rows - count) / (columns * rows);
-        const minimumWidth = scroll ? 145 : 112;
-        // Nomes e atalhos precisam de largura, mesmo quando uma tela baixa exige
-        // reduzir a altura. No celular, preserva a área de toque e permite rolagem.
-        const score = Math.log(cellWidth / cellHeight / 1.45) ** 2 + emptyFraction * .65 +
-          8 * (Math.max(0, minimumWidth - cellWidth) / minimumWidth) ** 2 +
-          4 * (Math.max(0, 96 - cellHeight) / 96) ** 2;
-        if (!best || score < best.score) best = { columns, rows, cellWidth, cellHeight, gridHeight, score };
+        const areaLoss = Math.log(maxWidth * maxHeight / (cellWidth * cellHeight));
+        // No desktop, prioriza a largura dos nomes antes da proporção original,
+        // preservando altura para número e controles. No celular, equilibra tamanho e largura ocupada
+        // sem reduzir o alvo de toque para fazer todas as linhas caberem na tela.
+        const score = scroll ? unusedWidth + areaLoss * .3
+          : areaLoss + .2 * Math.log(cellWidth / cellHeight / preferredRatio) ** 2 +
+            4 * (Math.max(0, 170 - cellWidth) / 170) ** 2 +
+            4 * (Math.max(0, 60 - cellHeight) / 60) ** 2;
+        const fullSize = !scroll && cellWidth === maxWidth && cellHeight === maxHeight;
+        const fitsControls = cellHeight >= 46;
+        const sameScore = best && Math.abs(score - best.score) < 1e-9;
+        // Não troca a altura mínima dos controles por largura extra para o nome.
+        if (best?.fitsControls && !fitsControls) continue;
+        if (!best || (fitsControls && !best.fitsControls) || (fullSize && !best.fullSize) || (fullSize === best.fullSize &&
+          (score < best.score - 1e-9 || (sameScore &&
+            (rows < best.rows || (rows === best.rows && emptyFraction < best.emptyFraction)))))) {
+          best = { columns, rows, cellWidth, cellHeight, gridHeight, score, fullSize, fitsControls, emptyFraction };
+        }
       }
     }
     choose();
     // Durante um redimensionamento, a área pode ser menor do que os próprios gaps.
     if (!best) { gap = 0; choose(); }
     const { columns, rows, cellWidth, cellHeight, gridHeight } = best;
-    return { columns, rows, gap, gridHeight, dense: cellWidth < 135 || cellHeight < 120,
-      tight: cellHeight < 96 || cellWidth < 108, micro: cellHeight < 62 || cellWidth < 82, cellWidth, cellHeight };
+    return { columns, rows, gap, gridHeight, dense: cellWidth < 200 || cellHeight < 132,
+      tight: cellWidth < 156 || cellHeight < 104, micro: cellWidth < 122 || cellHeight < 78, cellWidth, cellHeight };
   }
   return Object.freeze({ create, restore, normalizeKey, assign, move, targetAt, add, reconcile, sync, remove, gridSpec, AVAILABLE_KEYS });
 });

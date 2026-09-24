@@ -103,11 +103,17 @@
       avatar.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
       avatar.querySelectorAll('button').forEach(button => { button.tabIndex = -1; });
       avatar.querySelectorAll('.count-delta').forEach(node => node.remove());
-      avatar.style.setProperty('--key-size', this.win.getComputedStyle(cell.tile).getPropertyValue('--key-size'));
+      const tileStyle = this.win.getComputedStyle(cell.tile);
+      for (const property of ['--key-size', '--cell-band-width', '--cell-band-gap', '--cell-padding', '--cell-inset',
+        '--cell-control-size', '--cell-count-size', '--cell-caption-display',
+        '--cell-count-size-1', '--cell-count-size-2', '--cell-count-size-3', '--cell-count-size-4']) {
+        avatar.style.setProperty(property, tileStyle.getPropertyValue(property));
+      }
       Object.assign(avatar.style, { width: `${rect.width}px`, height: `${rect.height}px`, left: '0px', top: '0px' });
       for (const [selector, properties] of [
         ['.cell-add', ['padding', 'gap']], ['.cell-value', ['fontSize', 'lineHeight', 'paddingRight', 'marginTop', 'visibility']],
-        ['.cell-name', ['fontSize', 'lineHeight']], ['.cell-key-edit', ['top', 'right', 'bottom', 'height', 'minWidth']],
+        ['.cell-name', ['fontSize', 'lineHeight']], ['.ery-note', ['fontSize', 'lineHeight', 'marginTop']],
+        ['.cell-key-edit', ['top', 'right', 'bottom', 'height', 'width', 'minWidth']],
         ['.cell-delete', ['top', 'right', 'bottom', 'height', 'width']]
       ]) {
         const source = cell.tile.querySelector(selector);

@@ -64,6 +64,14 @@
   const darkPreference = window.matchMedia('(prefers-color-scheme: dark)');
   const escapeHTML = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 
+  // As cores personalizadas podem ser muito claras ou escuras nos dois temas.
+  function bandInk(color) {
+    const channels = [1, 3, 5].map(start => parseInt(color.slice(start, start + 2), 16) / 255)
+      .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+    const luminance = channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+    return luminance > .179 ? '#000000' : '#ffffff';
+  }
+
   function saveLayout(next) {
     const checked = Layout.restore(next);
     if (!checked) return false;
@@ -89,7 +97,9 @@
     grid.style.setProperty('--layout-columns', spec.columns);
     grid.style.setProperty('--layout-rows', spec.rows);
     grid.style.setProperty('--layout-gap', `${spec.gap}px`);
-    grid.style.setProperty('--layout-height', scroll ? `${spec.gridHeight}px` : '100%');
+    grid.style.setProperty('--layout-cell-width', `${spec.cellWidth}px`);
+    grid.style.setProperty('--layout-cell-height', `${spec.cellHeight}px`);
+    grid.style.setProperty('--layout-height', `${spec.gridHeight}px`);
     grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
     fitCellNames(grid, grid.getBoundingClientRect());
   }
@@ -98,28 +108,23 @@
     if (!cells.size) return;
     if (nameMeasureContext === undefined) nameMeasureContext = document.createElement('canvas').getContext?.('2d') || null;
     if (!nameMeasureContext) return;
-    const signature = [window.innerWidth, window.innerHeight, rect.width, rect.height, grid.dataset.density, editingLayout, cells.size].join('|');
-    if (signature === nameFitSignature) return;
     const preferred = parseFloat(getComputedStyle(grid).getPropertyValue('--cell-name-preferred-size')) || 14;
-    grid.dataset.nameLayout = 'inline';
-    const measureNames = () => {
-      let size = preferred;
-      for (const cell of cells.values()) {
-        const name = cell.nameLabel;
-        const available = name.clientWidth - 1;
-        if (available <= 0) continue;
-        const style = getComputedStyle(name);
-        nameMeasureContext.font = `${style.fontWeight} ${preferred}px ${style.fontFamily}`;
-        const spacing = parseFloat(style.letterSpacing) || 0;
-        const width = nameMeasureContext.measureText(name.textContent).width + spacing * Math.max(0, [...name.textContent].length - 1);
-        if (width > 0) size = Math.min(size, preferred * available / width);
-      }
-      return size;
-    };
-    let size = measureNames();
-    if (size < preferred * .85 && !editingLayout && !['tight', 'micro'].includes(grid.dataset.density)) {
-      grid.dataset.nameLayout = 'wide';
-      size = measureNames();
+    const labels = [...cells.values()].map(({ nameLabel }) => ({
+      nameLabel, available: nameLabel.clientWidth - 1
+    }));
+    const signature = [window.innerWidth, window.innerHeight, rect.width, rect.height, grid.dataset.density,
+      editingLayout, preferred, cells.size, ...labels.map(label => label.available)].join('|');
+    if (signature === nameFitSignature) return;
+    let size = preferred;
+    for (const { nameLabel, available } of labels) {
+      if (available <= 0) continue;
+      const text = nameLabel.textContent.trim().replace(/\s+/g, ' ');
+      const style = getComputedStyle(nameLabel);
+      nameMeasureContext.font = `${style.fontWeight} ${preferred}px ${style.fontFamily}`;
+      const spacing = parseFloat(style.letterSpacing) || 0;
+      const spacingWidth = spacing * Math.max(0, [...text].length - 1);
+      const width = nameMeasureContext.measureText(text).width;
+      if (width > 0) size = Math.min(size, preferred * Math.max(0, available - spacingWidth) / width);
     }
     // A single size, rounded down, keeps every label complete and visually consistent.
     for (let pass = 0; pass < 4; pass++) {
@@ -134,7 +139,8 @@
       if (ratio === 1) break;
       size *= ratio;
     }
-    if (grid.dataset.nameLayout === 'wide') {
+    // A faixa permanece no mesmo lugar; os números se ajustam à área do corpo.
+    {
       const sizes = [Infinity, Infinity, Infinity, Infinity];
       for (const { value } of cells.values()) {
         const style = getComputedStyle(value);
@@ -494,7 +500,7 @@
       const label = definition.excluded
         ? `<span class="ery-top-label"><span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span><span class="ery-note">Fora do total</span></span>`
         : `<span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span>`;
-      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span></span>`;
+      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span><span class="cell-caption" aria-hidden="true">células contadas</span></span>`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'cell-remove';
@@ -605,6 +611,7 @@
       const color = Core.cellColor(state, cell.key);
       cell.tile.dataset.colored = String(Boolean(color));
       cell.tile.style.setProperty('--cell-color', color || 'transparent');
+      cell.tile.style.setProperty('--cell-color-ink', color ? bandInk(color) : 'var(--muted)');
       const value = state.counts[cell.key];
       cell.number.textContent = value;
       cell.value.dataset.digits = Math.min(4, String(value).length);
