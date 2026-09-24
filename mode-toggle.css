@@ -9,7 +9,7 @@
   gap: 8px;
   min-width: 0;
 }
-.count-mode-switch { position: relative; width: 54px; flex: 0 0 54px; color-scheme: light; }
+.count-mode-switch { position: relative; width: 86px; flex: 0 0 86px; color-scheme: light; }
 .count-mode-pill {
   position: relative;
   height: 22px;
@@ -57,7 +57,7 @@
   transform: rotate(-28deg) scale(.78);
   transition: opacity 240ms ease, transform 460ms cubic-bezier(.22, .8, .3, 1);
 }
-.count-mode-control[data-count-mode="marrow"] { --count-mode-orb-x: 32px; }
+.count-mode-control[data-count-mode="marrow"] { --count-mode-orb-x: 64px; }
 .count-mode-control[data-count-mode="marrow"] .count-mode-marrow-fill { clip-path: inset(0); }
 .count-mode-control[data-count-mode="blood"] .count-mode-erythrocyte,
 .count-mode-control[data-count-mode="marrow"] .count-mode-bone { opacity: 1; transform: rotate(0) scale(1); }
@@ -65,7 +65,7 @@
   position: absolute;
   z-index: 2;
   inset: -11px 0 auto;
-  width: 54px;
+  width: 86px;
   height: 44px;
   min-height: 44px;
   margin: 0;
@@ -119,3 +119,9 @@
 @media (prefers-reduced-motion: reduce) {
   .count-mode-pill, .count-mode-marrow-fill, .count-mode-orb, .count-mode-orb > svg { transition: none; }
 }
+
+.count-mode-fluid-fill { position:absolute; inset:0; background: radial-gradient(ellipse at 30% 20%, #fff7dbaa, transparent 65%), linear-gradient(130deg,#a9bdb5,#becac0); opacity:0; transition:opacity 300ms; }
+.count-mode-control[data-count-mode="fluids"] { --count-mode-orb-x:32px; }
+.count-mode-control[data-count-mode="fluids"] .count-mode-fluid-fill { opacity:1; }
+.count-mode-control[data-count-mode="fluids"] .count-mode-droplet { opacity:1; transform:rotate(0) scale(1); }
+@media (prefers-reduced-motion: reduce) { .count-mode-fluid-fill { transition:none; } }

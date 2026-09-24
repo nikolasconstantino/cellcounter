@@ -6,8 +6,10 @@
   'use strict';
   const AVAILABLE_KEYS = [...'abcdefghijklmnopqrstuvwxyzç0123456789'];
   const validKey = key => typeof key === 'string' && /^[a-z0-9ç]$/u.test(key);
-  function create(customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual) {
-    const state = Core.create(undefined, customCells, mode, deletedCells, cellNames, visual);
+  const materialOf = value => value?.fluid?.material || value?.material || 'synovial';
+  const materialValid = material => ['synovial', 'csf', 'pleural', 'ascitic', 'pericardial'].includes(material);
+  function create(customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual, material = 'synovial') {
+    const state = Core.create(undefined, customCells, mode, deletedCells, cellNames, visual, undefined, material);
     const custom = state.customCells;
     const definitions = Core.allCells(state);
     const bindings = {};
@@ -16,27 +18,39 @@
       bindings[cell.key] = Object.values(bindings).includes(desired)
         ? AVAILABLE_KEYS.find(key => !Object.values(bindings).includes(key)) : desired;
     }
-    return { version: 5, mode: state.mode, deletedCells: state.deletedCells, cellNames: state.cellNames, ...Core.visualSettings(state), customCells: custom, order: definitions.map(cell => cell.key), bindings };
+    return { version: mode === 'fluids' ? 6 : 5, mode: state.mode, ...(mode === 'fluids' ? { material: materialOf(state), fluidPresets: {} } : {}), deletedCells: state.deletedCells, cellNames: state.cellNames, ...Core.visualSettings(state), customCells: custom, order: definitions.map(cell => cell.key), bindings };
   }
-  function restore(data) {
-    if (!data || ![1, 2, 3, 4, 5].includes(data.version)) return null;
+  function restore(data, preset = false) {
+    if (!data || ![1, 2, 3, 4, 5, 6].includes(data.version)) return null;
     const custom = data.customCells || [];
     const mode = data.version >= 3 ? data.mode : 'blood';
+    const material = mode === 'fluids' ? data.material || 'synovial' : undefined;
+    if (mode === 'fluids' && !materialValid(material)) return null;
     const deletedCells = data.version >= 3 ? data.deletedCells : [];
-    if (!Core.validCatalog(mode, custom, deletedCells)) return null;
+    if (!Core.validCatalog(mode, custom, deletedCells, material)) return null;
     const cellNames = data.version >= 4 ? data.cellNames : {};
-    if (!Core.validCellNames({ mode, customCells: custom, deletedCells }, cellNames)) return null;
+    if (!Core.validCellNames({ mode, material, customCells: custom, deletedCells }, cellNames)) return null;
     const visual = data.version >= 5 || Object.hasOwn(data, 'cellGroups') || Object.hasOwn(data, 'cellColors')
       ? { cellGroups: data.cellGroups, cellColors: data.cellColors } : undefined;
-    const catalog = { mode, customCells: custom, deletedCells };
+    const catalog = { mode, material, customCells: custom, deletedCells };
     if (visual && !Core.validVisual(catalog, visual)) return null;
-    const ids = Core.allCells({ mode, customCells: custom, deletedCells }).map(cell => cell.key);
+    const ids = Core.allCells(catalog).map(cell => cell.key);
     if (!Array.isArray(data.order) || data.order.length !== ids.length) return null;
     if (new Set(data.order).size !== ids.length || data.order.some(id => !ids.includes(id))) return null;
     if (!data.bindings || typeof data.bindings !== 'object' || Array.isArray(data.bindings)) return null;
     const values = ids.map(id => data.bindings[id]);
     if (values.some(key => !validKey(key)) || new Set(values).size !== ids.length) return null;
-    return { version: 5, mode, deletedCells: [...deletedCells], cellNames: { ...cellNames }, ...Core.visualSettings({ ...catalog, ...visual }), customCells: custom.map(cell => ({ ...cell })), order: [...data.order], bindings: Object.fromEntries(ids.map(id => [id, data.bindings[id]])) };
+    const fluidPresets = {};
+    if (mode === 'fluids' && !preset && data.fluidPresets !== undefined) {
+      if (!data.fluidPresets || typeof data.fluidPresets !== 'object' || Array.isArray(data.fluidPresets)) return null;
+      for (const [key, value] of Object.entries(data.fluidPresets)) {
+        if (!materialValid(key) || value?.mode !== 'fluids' || value?.material !== key) return null;
+        const checked = restore(value, true);
+        if (!checked) return null;
+        fluidPresets[key] = checked;
+      }
+    }
+    return { version: mode === 'fluids' ? 6 : 5, mode, ...(mode === 'fluids' ? { material, ...(!preset ? { fluidPresets } : {}) } : {}), deletedCells: [...deletedCells], cellNames: { ...cellNames }, ...Core.visualSettings({ ...catalog, ...visual }), customCells: custom.map(cell => ({ ...cell })), order: [...data.order], bindings: Object.fromEntries(ids.map(id => [id, data.bindings[id]])) };
   }
   function normalizeKey(value) {
     if (typeof value !== 'string') return null;
@@ -80,7 +94,7 @@
     if (conflict) return { changed: false, reason: 'conflict', conflict };
     const definition = { key: id, name: cleanName, excluded: excluded === true, defaultShortcut: shortcut };
     const customCells = [...layout.customCells, definition];
-    if (!Core.validCatalog(layout.mode, customCells, layout.deletedCells) || layout.order.includes(id)) return { changed: false, reason: 'limit' };
+    if (!Core.validCatalog(layout.mode, customCells, layout.deletedCells, materialOf(layout)) || layout.order.includes(id)) return { changed: false, reason: 'limit' };
     return { changed: true, definition, layout: { ...layout, customCells, order: [...layout.order, id], bindings: { ...layout.bindings, [id]: shortcut } } };
   }
   function reconcile(layout, customCells) {
@@ -100,7 +114,7 @@
   function sync(layout, state) {
     const definitions = Core.allCells(state);
     const ids = definitions.map(cell => cell.key);
-    const compatible = layout?.mode === state.mode;
+    const compatible = layout?.mode === state.mode && (state.mode !== 'fluids' || materialOf(layout) === materialOf(state));
     const order = compatible ? layout.order.filter(id => ids.includes(id)) : [];
     for (const id of ids) if (!order.includes(id)) order.push(id);
     const bindings = {};
@@ -114,7 +128,7 @@
       bindings[cell.key] = Object.values(bindings).includes(desired)
         ? AVAILABLE_KEYS.find(key => !Object.values(bindings).includes(key)) : desired;
     }
-    return { version: 5, mode: state.mode, cellNames: { ...state.cellNames }, ...Core.visualSettings(state), customCells: state.customCells.map(cell => ({ ...cell })),
+    return { version: state.mode === 'fluids' ? 6 : 5, mode: state.mode, ...(state.mode === 'fluids' ? { material: materialOf(state), fluidPresets: layout?.mode === 'fluids' ? { ...layout.fluidPresets } : {} } : {}), cellNames: { ...state.cellNames }, ...Core.visualSettings(state), customCells: state.customCells.map(cell => ({ ...cell })),
       deletedCells: [...state.deletedCells], order, bindings };
   }
   function remove(layout, id) {
@@ -128,21 +142,41 @@
     visual.cellGroups = visual.cellGroups.map(group => ({ ...group, cellIds: group.cellIds.filter(key => key !== id) }));
     return { changed: true, layout: { ...layout, bindings, cellNames, ...visual, order: layout.order.filter(key => key !== id),
       customCells: layout.customCells.filter(cell => cell.key !== id),
-      deletedCells: Core.baseCells(layout.mode).some(cell => cell.key === id) ? [...layout.deletedCells, id] : [...layout.deletedCells]
+      deletedCells: Core.baseCells(layout).some(cell => cell.key === id) ? [...layout.deletedCells, id] : [...layout.deletedCells]
     } };
   }
-  function gridSpec(count, width, height) {
-    count = Math.max(1, count);
-    const gap = width < 1000 ? 8 : 10;
-    let columns = Math.min(count, width >= 1000 ? 7 : 5);
-    const maximum = Math.min(count, Math.max(columns, Math.floor((width + gap) / 112)));
-    while (columns < maximum && (height - gap * (Math.ceil(count / columns) - 1)) / Math.ceil(count / columns) < 78) columns++;
-    const compactMaximum = Math.min(count, Math.max(columns, Math.floor((width + gap) / 94)));
-    while (columns < compactMaximum && (height - gap * (Math.ceil(count / columns) - 1)) / Math.ceil(count / columns) < 62) columns++;
-    const rows = Math.ceil(count / columns);
-    const cellWidth = (width - gap * (columns - 1)) / columns;
-    const cellHeight = (height - gap * (rows - 1)) / rows;
-    return { columns, rows, gap, dense: cellWidth < 135 || cellHeight < 120, tight: cellHeight < 96 || cellWidth < 108, micro: cellHeight < 62 || cellWidth < 82, cellWidth, cellHeight };
+  function gridSpec(count, width, height, options = {}) {
+    count = Number.isFinite(count) ? Math.max(1, Math.floor(count)) : 1;
+    width = Number.isFinite(width) ? Math.max(1, width) : 1;
+    height = Number.isFinite(height) ? Math.max(1, height) : 1;
+    let gap = width < 1000 ? 8 : 10;
+    const scroll = options?.scroll === true;
+    let best;
+    // Todos os modos usam as mesmas proporções. Compara a área realmente disponível,
+    // evitando fixar sete colunas para catálogos que cabem melhor em duas ou três linhas.
+    function choose() {
+      for (let columns = 1; columns <= count; columns++) {
+        const rows = Math.ceil(count / columns);
+        const gridHeight = scroll ? Math.max(height, rows * 103 + gap * (rows - 1)) : height;
+        const cellWidth = (width - gap * (columns - 1)) / columns;
+        const cellHeight = (gridHeight - gap * (rows - 1)) / rows;
+        if (cellWidth <= 0 || cellHeight <= 0) continue;
+        const emptyFraction = (columns * rows - count) / (columns * rows);
+        const minimumWidth = scroll ? 145 : 112;
+        // Nomes e atalhos precisam de largura, mesmo quando uma tela baixa exige
+        // reduzir a altura. No celular, preserva a área de toque e permite rolagem.
+        const score = Math.log(cellWidth / cellHeight / 1.45) ** 2 + emptyFraction * .65 +
+          8 * (Math.max(0, minimumWidth - cellWidth) / minimumWidth) ** 2 +
+          4 * (Math.max(0, 96 - cellHeight) / 96) ** 2;
+        if (!best || score < best.score) best = { columns, rows, cellWidth, cellHeight, gridHeight, score };
+      }
+    }
+    choose();
+    // Durante um redimensionamento, a área pode ser menor do que os próprios gaps.
+    if (!best) { gap = 0; choose(); }
+    const { columns, rows, cellWidth, cellHeight, gridHeight } = best;
+    return { columns, rows, gap, gridHeight, dense: cellWidth < 135 || cellHeight < 120,
+      tight: cellHeight < 96 || cellWidth < 108, micro: cellHeight < 62 || cellWidth < 82, cellWidth, cellHeight };
   }
   return Object.freeze({ create, restore, normalizeKey, assign, move, targetAt, add, reconcile, sync, remove, gridSpec, AVAILABLE_KEYS });
 });

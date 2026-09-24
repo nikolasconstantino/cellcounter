@@ -1,4 +1,4 @@
-/* Rótulos neutros: adjetivos do aplicativo para macOS e substantivos de natureza. */
+/* Rótulos neutros: adjetivos do aplicativo para macOS, natureza e especiarias. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.CellSessionNames = factory();
@@ -33,7 +33,11 @@
     'sage', 'astute', 'lucky', 'blithe', 'buoyant', 'spry',
     'dawn', 'aurora', 'vesper', 'eventide', 'nocturne', 'solstice',
     'equinox', 'zephyr', 'boreal', 'austral', 'vernal', 'estival',
-    'halcyon', 'transient', 'fleeting', 'enduring', 'perennial', 'timeless'
+    'halcyon', 'transient', 'fleeting', 'enduring', 'perennial', 'timeless',
+    // Vocabulário simples de luz, paisagens, cores e qualidades suaves.
+    'sunny', 'moonlit', 'starlit', 'snowy', 'misty', 'breezy',
+    'leafy', 'floral', 'coastal', 'oceanic', 'sandy', 'pastel',
+    'smooth', 'golden', 'silver', 'beige', 'cozy', 'peaceful', 'curious'
   ]);
   const nouns = Object.freeze([
     // Paisagens e lugares naturais.
@@ -76,7 +80,22 @@
     'peony', 'azalea', 'camellia', 'dahlia', 'hibiscus', 'magnolia',
     // Ervas e outras plantas do cotidiano.
     'mint', 'basil', 'rosemary', 'sage', 'thyme', 'oregano',
-    'parsley', 'aloe', 'cactus', 'clover', 'agave', 'coffee'
+    'parsley', 'aloe', 'cactus', 'clover', 'agave', 'coffee',
+    // Mais árvores, frutos e flores familiares.
+    'mango', 'guava', 'fig', 'pear', 'walnut', 'almond',
+    'gardenia', 'petunia', 'geranium', 'marigold', 'verbena', 'zinnia',
+    // Plantas, cultivos e referências do litoral.
+    'ginger', 'vanilla', 'sesame', 'cotton', 'cocoa', 'fennel',
+    'marina', 'lighthouse', 'kelp', 'sponge', 'pelican', 'penguin',
+    // Especiarias; cinnamon e saffron já estão na lista de adjetivos.
+    'paprika', 'pepper', 'cumin', 'clove', 'nutmeg', 'turmeric',
+    'cardamom', 'coriander', 'anise', 'allspice', 'mustard', 'curry',
+    // Seleção natural revisada; nomes fantásticos e animais usados como insulto ficam fora.
+    'mangrove', 'dandelion', 'allium', 'cornflower', 'wildflower', 'lilac',
+    'seagrass', 'sugarcane', 'pumpkin', 'melon', 'berry', 'shrub', 'mushroom',
+    'sandstone', 'gravel', 'diamond', 'amethyst', 'calcite', 'jungle',
+    'savanna', 'plateau', 'geyser', 'fox', 'panda', 'parrot',
+    'rabbit', 'bee', 'axolotl', 'armadillo', 'nautilus'
   ]);
   // Apenas para restaurar sessões anteriores sem trocar seus identificadores.
   // A geração usa somente o catálogo ativo acima.
@@ -122,6 +141,16 @@
   const adjectiveSet = new Set(adjectives);
   const nounSet = new Set([...nouns, ...legacyNouns]);
   const idCapacity = alphabet.length ** 3;
+  // Exclusões editoriais de pares inteiros, sem bloquear fragmentos de palavras.
+  // Aplicam-se somente à geração; rótulos já emitidos continuam válidos.
+  const excludedPairs = new Set([
+    'crystalline-crystal', 'opaline-opal', 'tidal-tide', 'ashen-ash',
+    'sunny-sun', 'moonlit-moon', 'starlit-star', 'snowy-snow',
+    'misty-mist', 'breezy-breeze', 'leafy-leaf', 'floral-flower',
+    'coastal-coast', 'oceanic-ocean', 'sandy-sand', 'sandy-sandstone',
+    // Referência à aparência/idade de pessoas ou duplo sentido sexual.
+    'silver-fox', 'golden-rain'
+  ]);
 
   function valid(label) {
     if (!label || typeof label !== 'object' || Array.isArray(label) ||
@@ -146,6 +175,11 @@
     return `${adjectives[Math.floor(index / nouns.length)]}-${nouns[index % nouns.length]}`;
   }
 
+  function canGenerate(name) {
+    const [adjective, noun] = name.split('-');
+    return adjective !== noun && !excludedPairs.has(name);
+  }
+
   function idAt(index) {
     let id = '';
     for (let position = 0; position < 3; position++) {
@@ -163,16 +197,17 @@
 
     let name;
     for (let attempt = 0; attempt <= 12; attempt++) {
-      name = `${adjectives[randomIndex(adjectives.length)]}-${nouns[randomIndex(nouns.length)]}`;
-      if (!names.has(name)) break;
+      const candidate = `${adjectives[randomIndex(adjectives.length)]}-${nouns[randomIndex(nouns.length)]}`;
+      if (canGenerate(candidate) && !names.has(candidate)) { name = candidate; break; }
     }
     // Busca limitada também funciona quando a fonte aleatória repete o mesmo valor.
-    if (names.has(name)) {
+    if (!name) {
       for (let index = 0; index < adjectives.length * nouns.length; index++) {
         const candidate = pairAt(index);
-        if (!names.has(candidate)) { name = candidate; break; }
+        if (canGenerate(candidate) && !names.has(candidate)) { name = candidate; break; }
       }
     }
+    if (!name) throw new RangeError('Todos os nomes de sessão disponíveis estão em uso.');
 
     let shortID;
     for (let attempt = 0; attempt <= 12; attempt++) {

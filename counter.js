@@ -3,10 +3,11 @@
  */
 (function (root, factory) {
   'use strict';
-  const api = factory(typeof module === 'object' && module.exports ? require('./session-names.js') : root.CellSessionNames);
+  const api = factory(typeof module === 'object' && module.exports ? require('./session-names.js') : root.CellSessionNames,
+    typeof module === 'object' && module.exports ? require('./fluids.js') : root.CellFluids);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CellCounter = api;
-})(typeof window !== 'undefined' ? window : this, function (SessionNames) {
+})(typeof window !== 'undefined' ? window : this, function (SessionNames, Fluids) {
   'use strict';
 
   const CELLS = Object.freeze([
@@ -46,6 +47,7 @@
   ].map(Object.freeze));
   const MODES = Object.freeze({
     blood: Object.freeze({ name: 'Sangue periférico', defaultTarget: 100, targets: Object.freeze([100, 200, 500]) }),
+    fluids: Object.freeze({ name: 'Líquidos nobres', defaultTarget: 100, targets: Object.freeze([100, 200]) }),
     marrow: Object.freeze({ name: 'Medula óssea', defaultTarget: 500, targets: Object.freeze([200, 500, 1000]) })
   });
   const GROUPS = Object.freeze({ granulocytic: 'Série granulocítica', monocytic: 'Série monocítica',
@@ -53,15 +55,20 @@
   const TARGETS = Object.freeze([100, 200, 500]);
   const HISTORY_LIMIT = 1000;
   const validNumber = value => Number.isSafeInteger(value) && value >= 0;
+  const validTarget = value => Number.isSafeInteger(value) && value > 0;
   const modeInfo = state => MODES[typeof state === 'string' ? state : state.mode] || MODES.blood;
-  const baseCells = (mode = 'blood') => mode === 'marrow' ? MARROW_CELLS : CELLS;
-  const catalogCells = state => [...baseCells(state.mode).filter(cell => !(state.deletedCells || []).includes(cell.key)), ...(state.customCells || [])];
+  const fluidMaterial = value => typeof value === 'string' ? value : value?.fluid?.material || value?.material || 'synovial';
+  const baseCells = (value = 'blood', material = 'synovial') => {
+    const mode = typeof value === 'string' ? value : value.mode;
+    return mode === 'fluids' ? Fluids.baseCells(typeof value === 'string' ? material : fluidMaterial(value)).map(cell => ({ ...cell, defaultShortcut: cell.shortcut })) : mode === 'marrow' ? MARROW_CELLS : CELLS;
+  };
+  const catalogCells = state => [...baseCells(state).filter(cell => !(state.deletedCells || []).includes(cell.key)), ...(state.customCells || [])];
   const allCells = state => catalogCells(state).map(cell => Object.hasOwn(state.cellNames || {}, cell.key)
     ? { ...cell, name: state.cellNames[cell.key], shortName: state.cellNames[cell.key] } : cell);
   const cellById = (state, key) => allCells(state).find(cell => cell.key === key);
-  const total = state => allCells(state).reduce((sum, cell) => sum + (cell.excluded ? 0 : state.counts[cell.key]), 0);
-  const hasProgress = state => allCells(state).some(cell => state.counts[cell.key] > 0);
-  const complete = state => total(state) === state.target;
+  const total = state => state.mode === 'fluids' ? Fluids.differentialTotal(state.fluid) : allCells(state).reduce((sum, cell) => sum + (cell.excluded ? 0 : state.counts[cell.key]), 0);
+  const hasProgress = state => state.mode === 'fluids' ? Fluids.hasProgress(state.fluid) : allCells(state).some(cell => state.counts[cell.key] > 0);
+  const complete = state => state.mode === 'fluids' ? Fluids.differentialComplete(state.fluid, state.target) : total(state) === state.target;
 
   function validCustomCells(cells) {
     return Array.isArray(cells) && cells.length <= 37 && new Set(cells.map(cell => cell?.key)).size === cells.length && cells.every(cell =>
@@ -70,10 +77,11 @@
       typeof cell.excluded === 'boolean' && typeof cell.defaultShortcut === 'string' && /^[a-z0-9ç]$/u.test(cell.defaultShortcut));
   }
 
-  function validCatalog(mode, customCells, deletedCells) {
+  function validCatalog(mode, customCells, deletedCells, material = 'synovial') {
+    if (mode === 'fluids' && !Fluids.MATERIALS.some(item => item.key === material)) return false;
     return Object.hasOwn(MODES, mode) && validCustomCells(customCells) && Array.isArray(deletedCells) &&
-      new Set(deletedCells).size === deletedCells.length && deletedCells.every(id => baseCells(mode).some(cell => cell.key === id)) &&
-      baseCells(mode).length - deletedCells.length + customCells.length <= 37;
+      new Set(deletedCells).size === deletedCells.length && deletedCells.every(id => baseCells(mode, material).some(cell => cell.key === id)) &&
+      baseCells(mode, material).length - deletedCells.length + customCells.length <= 37;
   }
 
   function copyCustom(cells) {
@@ -140,28 +148,83 @@
       Object.entries(names).every(([id, name]) => catalogCells(state).some(cell => cell.key === id) && validName(name));
   }
 
-  function create(target, customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual, sessionLabel) {
+  function create(target, customCells = [], mode = 'blood', deletedCells = [], cellNames = {}, visual, sessionLabel, material = 'synovial', targetSettings = {}) {
     if (!Object.hasOwn(MODES, mode)) mode = 'blood';
-    const valid = validCatalog(mode, customCells, deletedCells);
+    if (mode === 'fluids' && !Fluids.MATERIALS.some(item => item.key === material)) material = 'synovial';
+    const valid = validCatalog(mode, customCells, deletedCells, material);
     const custom = valid ? copyCustom(customCells) : [];
     const deleted = valid ? [...deletedCells] : [];
-    const catalog = { mode, customCells: custom, deletedCells: deleted };
-    return {
-      version: 7, mode, target: modeInfo(mode).targets.includes(target) ? target : modeInfo(mode).defaultTarget,
+    const catalog = { mode, material, customCells: custom, deletedCells: deleted };
+    const customTarget = validTarget(targetSettings?.customTarget) ? targetSettings.customTarget : null;
+    const targetSource = targetSettings?.targetSource === 'custom' && customTarget !== null && target === customTarget ? 'custom' : 'preset';
+    return syncFluid({
+      version: 13, mode, customTarget, targetSource,
+      target: targetSource === 'custom' || modeInfo(mode).targets.includes(target) ? target : modeInfo(mode).defaultTarget,
       sessionLabel: SessionNames.valid(sessionLabel) ? { name: sessionLabel.name, shortID: sessionLabel.shortID } : SessionNames.generate(),
       customCells: custom, deletedCells: deleted,
-      cellNames: validCellNames({ mode, customCells: custom, deletedCells: deleted }, cellNames) ? { ...cellNames } : {},
+      cellNames: validCellNames(catalog, cellNames) ? { ...cellNames } : {},
       ...visualSettings(validVisual(catalog, visual) ? { ...catalog, ...visual } : catalog),
-      counts: Object.fromEntries(allCells({ mode, customCells: custom, deletedCells: deleted }).map(cell => [cell.key, 0])),
-      history: [], paused: false, createdAt: new Date().toISOString(), updatedAt: null
-    };
+      counts: Object.fromEntries(allCells(catalog).map(cell => [cell.key, 0])),
+      history: [], paused: false, createdAt: new Date().toISOString(), updatedAt: null,
+      timing: { startedAt: null, completedAt: null },
+      ...(mode === 'fluids' ? { fluid: Fluids.create(material) } : {})
+    });
+  }
+
+  function syncFluid(state) {
+    if (state.mode !== 'fluids') return state;
+    const fluid = Fluids.withCatalog(state.fluid, allCells(state));
+    if (!fluid) return state;
+    return { ...state, fluid, counts: fluid.differential.counts };
   }
 
   function touch(state, changes) {
-    return { ...state, ...changes, updatedAt: new Date().toISOString() };
+    const next = syncFluid({ ...state, ...changes, updatedAt: new Date().toISOString() });
+    if (next.timing?.startedAt) next.timing = {
+      ...next.timing,
+      completedAt: next.mode !== 'fluids' && complete(next)
+        ? next.timing.completedAt || new Date(Math.max(Date.parse(next.timing.startedAt), Date.parse(next.updatedAt))).toISOString()
+        : null
+    };
+    return next;
+  }
+
+  // Tempo decorrido, incluindo pausas; a conclusão fixa o instante final.
+  function sessionDuration(state, now = Date.now()) {
+    if (!state.timing?.startedAt) return null;
+    return Math.max(0, (state.timing.completedAt ? Date.parse(state.timing.completedAt) : now) - Date.parse(state.timing.startedAt));
+  }
+
+  function formatDuration(milliseconds) {
+    const seconds = Math.floor(Math.max(0, milliseconds) / 1000);
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor(seconds / 60) % 60;
+    const remainder = String(seconds % 60).padStart(2, '0');
+    return hours ? `${hours} h ${String(minutes).padStart(2, '0')} min ${remainder} s`
+      : minutes ? `${minutes} min ${remainder} s` : `${seconds} s`;
   }
 
   function unchanged(state, reason) { return { state, changed: false, reason }; }
+
+  function updateFluid(state, result) {
+    if (state.mode !== 'fluids') return unchanged(state, 'invalid');
+    if (state.paused) return unchanged(state, 'paused');
+    if (state.fluid.materialSelected === false) return unchanged(state, 'material-required');
+    if (!result?.changed) return unchanged(state, result?.reason || 'same');
+    const restored = Fluids.restore(result.data);
+    if (!restored) return unchanged(state, 'invalid');
+    const materialChanged = restored.material !== state.fluid.material;
+    const catalog = materialChanged ? create(state.target, [], 'fluids', [], {}, undefined, state.sessionLabel, restored.material, state) : state;
+    const fluid = Fluids.withCatalog(restored, allCells(catalog));
+    if (!fluid || Fluids.differentialTotal(fluid) > state.target) return unchanged(state, 'invalid');
+    return { changed: true, entry: { type: 'fluid' }, state: touch(state, {
+      ...(materialChanged ? { customCells: catalog.customCells, deletedCells: catalog.deletedCells, cellNames: catalog.cellNames, ...visualSettings(catalog) } : {}),
+      fluid,
+      timing: state.timing?.startedAt === null && Fluids.hasProgress(fluid)
+        ? { startedAt: new Date().toISOString(), completedAt: null } : state.timing,
+      history: materialChanged ? [] : [...state.history, { type: 'fluid' }].slice(-50)
+    }) };
+  }
 
   function saveGroup(state, values) {
     if (!values || !validGroupId(values.id)) return unchanged(state, 'invalid');
@@ -217,6 +280,13 @@
     const cell = cellById(state, key);
     if (!cell || (delta !== 1 && delta !== -1)) return unchanged(state, 'invalid');
     if (state.paused) return unchanged(state, 'paused');
+    if (state.mode === 'fluids') {
+      const changed = updateFluid(state, Fluids.changeDifferential(state.fluid, key, delta, state.target));
+      if (!changed.changed) return changed;
+      const entry = { type: 'count', key, delta };
+      const history = [...changed.state.history.slice(0, -1), { type: 'fluid', key, delta }];
+      return { ...changed, entry, state: { ...changed.state, history } };
+    }
     if (delta > 0 && !cell.excluded && total(state) >= state.target) return unchanged(state, 'complete');
     const next = state.counts[key] + delta;
     if (!validNumber(next)) return unchanged(state, 'limit');
@@ -224,34 +294,53 @@
     return {
       changed: true, entry,
       state: touch(state, {
+        timing: state.timing?.startedAt === null && delta > 0
+          ? hasProgress(state) ? null : { startedAt: new Date().toISOString(), completedAt: null }
+          : state.timing,
         counts: { ...state.counts, [key]: next },
         history: [...state.history, entry].slice(-HISTORY_LIMIT)
       })
     };
   }
 
-  function setTarget(state, target) {
-    if (!modeInfo(state).targets.includes(target)) return unchanged(state, 'invalid');
+  function changeTarget(state, target, targetSource) {
+    if (state.paused) return unchanged(state, 'paused');
+    if (state.mode === 'fluids' && state.fluid.materialSelected === false) return unchanged(state, 'material-required');
+    if (targetSource === 'custom' ? !validTarget(target) : !modeInfo(state).targets.includes(target)) return unchanged(state, 'invalid');
     if (target < total(state)) return unchanged(state, 'below-total');
-    if (target === state.target) return unchanged(state, 'same');
-    const entry = { type: 'target', from: state.target, to: target };
+    if (target === state.target && targetSource === state.targetSource) return unchanged(state, 'same');
+    const entry = { type: 'target', from: state.target, to: target, fromSource: state.targetSource, toSource: targetSource,
+      ...(state.mode === 'fluids' ? { fromClosedLowCellularity: state.fluid.differential.closedLowCellularity } : {}) };
     return {
       changed: true, entry,
       state: touch(state, {
-        target,
-        history: hasProgress(state) ? [...state.history, entry].slice(-HISTORY_LIMIT) : []
+        target, targetSource, customTarget: targetSource === 'custom' ? target : state.customTarget,
+        ...(state.mode === 'fluids' ? { fluid: { ...state.fluid, differential: { ...state.fluid.differential, closedLowCellularity: false } } } : {}),
+        history: hasProgress(state) ? [...state.history, entry].slice(state.mode === 'fluids' ? -50 : -HISTORY_LIMIT) : []
       })
     };
   }
 
+  function setTarget(state, target) { return changeTarget(state, target, 'preset'); }
+  function setCustomTarget(state, target) { return changeTarget(state, target, 'custom'); }
+
   function undo(state) {
     if (state.paused) return unchanged(state, 'paused');
+    if (state.mode === 'fluids' && state.fluid.materialSelected === false) return unchanged(state, 'material-required');
     const entry = state.history[state.history.length - 1];
     if (!entry) return unchanged(state, 'empty');
+    if (state.mode === 'fluids' && entry.type === 'fluid') {
+      const result = Fluids.undo(state.fluid);
+      if (!result.changed || Fluids.differentialTotal(result.data) > state.target) return unchanged(state, result.reason || 'below-total');
+      const described = cellById(state, entry.key) && [1, -1].includes(entry.delta) ? { type: 'count', key: entry.key, delta: entry.delta } : entry;
+      return { changed: true, entry: described, state: touch(state, { fluid: result.data, history: state.history.slice(0, -1) }) };
+    }
     let changes;
     if (entry.type === 'target') {
       if (total(state) > entry.from) return unchanged(state, 'below-total');
-      changes = { target: entry.from };
+      // A preferência customizada fica salva ao voltar para uma meta padrão.
+      // Ao desfazer a edição de uma meta customizada ativa, seu valor anterior é recuperado.
+      changes = { target: entry.from, targetSource: entry.fromSource, customTarget: entry.fromSource === 'custom' ? entry.from : state.customTarget, ...(state.mode === 'fluids' ? { fluid: { ...state.fluid, differential: { ...state.fluid.differential, closedLowCellularity: entry.fromClosedLowCellularity === true } } } : {}) };
     } else {
       const next = state.counts[entry.key] - entry.delta;
       if (!validNumber(next)) return unchanged(state, 'invalid');
@@ -264,20 +353,36 @@
   // A sessão é validada antes de qualquer valor salvo entrar na interface.
   // Histórico inválido é descartado, preservando contagens válidas.
   function restore(data) {
-    if (!data || typeof data !== 'object' || ![2, 3, 4, 5, 6, 7].includes(data.version)) return null;
+    if (!data || typeof data !== 'object' || ![2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].includes(data.version)) return null;
     if (!data.counts || typeof data.counts !== 'object' || Array.isArray(data.counts)) return null;
     const custom = data.customCells ?? [];
     const mode = data.version >= 4 ? data.mode : 'blood';
+    const material = mode === 'fluids' ? data.fluid?.material : 'synovial';
     const deleted = data.version >= 4 ? data.deletedCells : [];
-    if (!validCatalog(mode, custom, deleted)) return null;
+    if (!validCatalog(mode, custom, deleted, material)) return null;
     const names = data.version >= 5 ? data.cellNames : {};
-    if (!validCellNames({ mode, customCells: custom, deletedCells: deleted }, names)) return null;
+    if (!validCellNames({ mode, material, customCells: custom, deletedCells: deleted }, names)) return null;
     const visual = data.version >= 6 || Object.hasOwn(data, 'cellGroups') || Object.hasOwn(data, 'cellColors')
       ? { cellGroups: data.cellGroups, cellColors: data.cellColors } : undefined;
-    if (visual && !validVisual({ mode, customCells: custom, deletedCells: deleted }, visual)) return null;
-    const state = create(data.version === 2 ? 100 : data.target, custom, mode, deleted, names, visual, data.sessionLabel);
-    if (data.version !== 2 && !modeInfo(state).targets.includes(data.target)) return null;
-    for (const cell of allCells(state)) {
+    if (visual && !validVisual({ mode, material, customCells: custom, deletedCells: deleted }, visual)) return null;
+    const targetSettings = data.version >= 13 ? { customTarget: data.customTarget, targetSource: data.targetSource } : { customTarget: null, targetSource: 'preset' };
+    if (targetSettings.customTarget !== null && !validTarget(targetSettings.customTarget)) return null;
+    if (!['preset', 'custom'].includes(targetSettings.targetSource)) return null;
+    if (data.version !== 2 && (targetSettings.targetSource === 'custom'
+      ? targetSettings.customTarget === null || data.target !== targetSettings.customTarget
+      : !modeInfo(mode).targets.includes(data.target))) return null;
+    const state = create(data.version === 2 ? 100 : data.target, custom, mode, deleted, names, visual, data.sessionLabel, material, targetSettings);
+    if (mode === 'fluids') {
+      const fluid = Fluids.restore(data.fluid);
+      if (!fluid) return null;
+      state.fluid = fluid;
+      Object.assign(state, syncFluid(state));
+      if (data.version >= 12) {
+        const ids = allCells(state).map(cell => cell.key);
+        if (Object.keys(data.counts).length !== ids.length || ids.some(id => !validNumber(data.counts[id]) || data.counts[id] !== state.counts[id])) return null;
+      }
+    }
+    for (const cell of mode === 'fluids' ? [] : allCells(state)) {
       const raw = data.counts[cell.key] ?? (cell.key === 'p' ? data.eritroCount : 0) ?? 0;
       if (!validNumber(raw)) return null;
       state.counts[cell.key] = raw;
@@ -287,8 +392,20 @@
     if (validDate(data.createdAt)) state.createdAt = data.createdAt;
     state.updatedAt = validDate(data.updatedAt) ? data.updatedAt : null;
     state.paused = data.paused === true;
+    // Sessões antigas não registravam a primeira célula: não estimar a duração.
+    const timing = data.version >= 8 ? data.timing : null;
+    const hadCounts = hasProgress(state) || (Array.isArray(data.history) && data.history.some(event => event?.type === 'count'));
+    state.timing = hadCounts || data.timing === null ? null : { startedAt: null, completedAt: null };
+    if (timing && validDate(timing.startedAt) &&
+        (state.mode !== 'fluids' && complete(state)
+          ? validDate(timing.completedAt) && Date.parse(timing.completedAt) >= Date.parse(timing.startedAt)
+          : timing.completedAt === null)) {
+      state.timing = { startedAt: timing.startedAt, completedAt: timing.completedAt };
+    }
     if (data.version >= 3 && Array.isArray(data.history)) {
-      const candidate = data.history.slice(-HISTORY_LIMIT);
+      const candidate = data.history.slice(mode === 'fluids' ? -50 : -HISTORY_LIMIT).map(event =>
+        event?.type === 'target' && data.version < 13
+          ? { ...event, fromSource: event.fromSource ?? 'preset', toSource: event.toSource ?? 'preset' } : event);
       const simulated = { ...state, counts: { ...state.counts } };
       let valid = true;
       for (let i = candidate.length - 1; i >= 0; i--) {
@@ -299,14 +416,25 @@
           if (!validNumber(next)) { valid = false; break; }
           simulated.counts[event.key] = next;
           if (total(simulated) > simulated.target) { valid = false; break; }
-        } else if (event.type === 'target' && modeInfo(state).targets.includes(event.from) && event.to === simulated.target) {
+        } else if (event.type === 'fluid' && mode === 'fluids') {
+          const previous = Fluids.undo(simulated.fluid);
+          if (!previous.changed) { valid = false; break; }
+          simulated.fluid = previous.data;
+          if (total(simulated) > simulated.target) { valid = false; break; }
+        } else if (event.type === 'target' && event.to === simulated.target && event.toSource === simulated.targetSource &&
+          (event.fromSource === 'custom' ? validTarget(event.from) : event.fromSource === 'preset' && modeInfo(state).targets.includes(event.from))) {
           if (total(simulated) > event.from) { valid = false; break; }
+          if (mode === 'fluids') {
+            if (typeof event.fromClosedLowCellularity !== 'boolean') { valid = false; break; }
+            simulated.fluid = { ...simulated.fluid, differential: { ...simulated.fluid.differential, closedLowCellularity: event.fromClosedLowCellularity } };
+          }
           simulated.target = event.from;
+          simulated.targetSource = event.fromSource;
         } else { valid = false; break; }
       }
-      if (valid) state.history = candidate.map(event => event.type === 'count'
+      if (valid) state.history = candidate.map(event => event.type === 'fluid' ? { type: 'fluid', ...(cellById(state, event.key) && [1, -1].includes(event.delta) ? { key: event.key, delta: event.delta } : {}) } : event.type === 'count'
         ? { type: 'count', key: event.key, delta: event.delta }
-        : { type: 'target', from: event.from, to: event.to });
+        : { type: 'target', from: event.from, to: event.to, fromSource: event.fromSource, toSource: event.toSource, ...(mode === 'fluids' ? { fromClosedLowCellularity: event.fromClosedLowCellularity } : {}) });
     }
     return state;
   }
@@ -330,6 +458,12 @@
 
   function report(state) {
     const n = total(state);
+    if (state.mode === 'fluids') return [
+      'Contador de Células — Líquidos nobres',
+      `Sessão: ${state.sessionLabel.name} · ${state.sessionLabel.shortID}`,
+      `Duração: ${sessionDuration(state) === null ? 'Ainda não iniciada' : formatDuration(sessionDuration(state))}`,
+      '', Fluids.report(state.fluid, state.target)
+    ].join('\n');
     return [
       `Contador de Células — ${complete(state) ? 'Contagem concluída' : 'Contagem parcial'}`,
       `Modo: ${modeInfo(state).name}`,
@@ -377,10 +511,10 @@
     const incoming = new Map(customCells.map(cell => [cell.key, cell]));
     for (const cell of state.customCells || []) if (!incoming.has(cell.key)) incoming.set(cell.key, cell);
     const custom = [...incoming.values()];
-    if (!validCatalog(state.mode || 'blood', custom, state.deletedCells || [])) return state;
-    return { ...state, customCells: copyCustom(custom), counts: {
+    if (!validCatalog(state.mode || 'blood', custom, state.deletedCells || [], fluidMaterial(state))) return state;
+    return syncFluid({ ...state, customCells: copyCustom(custom), counts: {
       ...Object.fromEntries(custom.map(cell => [cell.key, 0])), ...state.counts
-    } };
+    } });
   }
 
   function removeCell(state, id) {
@@ -394,10 +528,29 @@
     visual.cellGroups = visual.cellGroups.map(group => ({ ...group, cellIds: group.cellIds.filter(key => key !== id) }));
     return { changed: true, removedCount: state.counts[id], state: touch(state, {
       counts, cellNames, ...visual, customCells: state.customCells.filter(cell => cell.key !== id),
-      deletedCells: baseCells(state.mode).some(cell => cell.key === id) ? [...state.deletedCells, id] : [...state.deletedCells],
-      history: state.history.filter(entry => entry.type !== 'count' || entry.key !== id)
+      deletedCells: baseCells(state).some(cell => cell.key === id) ? [...state.deletedCells, id] : [...state.deletedCells],
+      history: state.history.filter(entry => entry.type !== 'count' || entry.key !== id).map(entry => entry.type === 'fluid' && entry.key === id ? { type: 'fluid' } : entry)
     }) };
   }
 
-  return Object.freeze({ CELLS, MARROW_CELLS, MODES, GROUPS, TARGETS, modeInfo, baseCells, allCells, validCatalog, validCustomCells, validCellNames, normalizeName, normalizeColor, validVisual, visualSettings, cellColor, saveGroup, removeGroup, setCellColor, withCustomCells, create, total, hasProgress, complete, change, setTarget, undo, restore, percentage, series, formatPercent, report, csv, shortcut, removeCell, renameCell });
+  function restoreDefaultCells(state) {
+    const restoredIds = state.deletedCells || [];
+    if (!restoredIds.length) return unchanged(state, 'same');
+    const requiredSlots = baseCells(state).length + state.customCells.length - 37;
+    if (requiredSlots > 0) return { ...unchanged(state, 'limit'), requiredSlots };
+    const visual = visualSettings(state);
+    const defaults = defaultCellGroups({ ...state, deletedCells: [] });
+    // Reuse surviving default groups, including their customized name and color.
+    // A group deliberately removed by the user stays removed.
+    visual.cellGroups = visual.cellGroups.map(group => ({ ...group, cellIds: [
+      ...group.cellIds,
+      ...(defaults.find(item => item.id === group.id)?.cellIds || []).filter(id => restoredIds.includes(id))
+    ] }));
+    return { changed: true, restoredIds: [...restoredIds], state: touch(state, {
+      deletedCells: [], ...visual,
+      counts: { ...state.counts, ...Object.fromEntries(restoredIds.map(id => [id, 0])) }
+    }) };
+  }
+
+  return Object.freeze({ CELLS, MARROW_CELLS, MODES, GROUPS, TARGETS, modeInfo, baseCells, allCells, validCatalog, validCustomCells, validCellNames, normalizeName, normalizeColor, validVisual, visualSettings, cellColor, saveGroup, removeGroup, setCellColor, withCustomCells, create, total, hasProgress, complete, change, setTarget, setCustomTarget, undo, updateFluid, restore, sessionDuration, formatDuration, percentage, series, formatPercent, report, csv, shortcut, removeCell, restoreDefaultCells, renameCell });
 });

@@ -5,12 +5,17 @@
   const Layout = window.CellLayout;
   const Session = window.CellSession;
   const SessionNames = window.CellSessionNames;
+  const PrintSummary = window.CellPrintSummary;
+  const Fluids = window.CellFluids;
+  const FluidView = window.CellFluidView;
+  let fluidView;
+  let fluidConfirmation = null;
   const PREVIOUS_STORAGE = 'cellCounterState_v3';
   const LEGACY_STORAGE = 'cellCounterState_v2';
   const PREFS_STORAGE = 'cellCounterPrefs_v3';
   const PREVIOUS_LAYOUT = 'cellCounterLayout_v1';
   const MODE_STORAGE = 'cellCounterMode_v1';
-  const countingModes = ['blood', 'marrow'];
+  const countingModes = ['blood', 'fluids', 'marrow'];
   let mode = 'blood';
   let storageKey = Session.key(mode);
   const sessionCache = new Map();
@@ -46,6 +51,8 @@
   let recoveredExternally = false;
   let dirty = false;
   let storageFailed = false;
+  let notesCleanupFailed = false;
+  let findingsCleanupFailed = false;
   let pendingTarget = null;
   let lastKey = null;
   let lastAction = 'Aguardando a primeira célula';
@@ -71,17 +78,20 @@
     gridFrame = null;
     document.documentElement.style.setProperty('--progress-panel-height', `${$('progress').closest('.progress-panel').getBoundingClientRect().height}px`);
     const grid = $('cell-grid');
-    const rect = grid.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-    if (window.innerWidth < 800) delete grid.dataset.density;
-    else {
-      const spec = Layout.gridSpec(layout.order.length + (editingLayout ? 1 : 0), rect.width, rect.height);
-      grid.style.setProperty('--layout-columns', spec.columns);
-      grid.style.setProperty('--layout-rows', spec.rows);
-      grid.style.setProperty('--layout-gap', `${spec.gap}px`);
-      grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
-    }
-    fitCellNames(grid, rect);
+    const home = $('cell-grid-home');
+    const bounds = home.getBoundingClientRect();
+    if (grid.hidden || home.hidden || bounds.width <= 0) return;
+    const scroll = window.innerWidth < 800;
+    // A viewport estimate stays stable while the mobile grid grows or the page scrolls.
+    const availableHeight = scroll ? Math.max(230, window.innerHeight * .55) : bounds.height;
+    if (availableHeight <= 0) return;
+    const spec = Layout.gridSpec(layout.order.length + (editingLayout ? 1 : 0), bounds.width, availableHeight, { scroll });
+    grid.style.setProperty('--layout-columns', spec.columns);
+    grid.style.setProperty('--layout-rows', spec.rows);
+    grid.style.setProperty('--layout-gap', `${spec.gap}px`);
+    grid.style.setProperty('--layout-height', scroll ? `${spec.gridHeight}px` : '100%');
+    grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
+    fitCellNames(grid, grid.getBoundingClientRect());
   }
 
   function fitCellNames(grid, rect) {
@@ -174,6 +184,50 @@
     if (!state.updatedAt && !Core.hasProgress(state)) dirty = false;
   }
 
+  function removeLegacyFindings() {
+    findingsCleanupFailed = false;
+    for (const key of [Session.key('fluids'), 'cellCounterRecovery_v4_fluids']) {
+      try {
+        const raw = localStorage.getItem(key);
+        let data;
+        try { data = JSON.parse(raw); } catch (_) { continue; }
+        const fluid = data?.state?.fluid;
+        if (!fluid || typeof fluid !== 'object') continue;
+        let changed = false;
+        for (const snapshot of [fluid, ...(Array.isArray(fluid.history) ? fluid.history : [])]) {
+          if (snapshot && typeof snapshot === 'object' && Object.hasOwn(snapshot, 'findings')) {
+            delete snapshot.findings;
+            changed = true;
+          }
+        }
+        if (!changed) continue;
+        const cleaned = JSON.stringify(data);
+        localStorage.setItem(key, cleaned);
+        if (key === storageKey && lastStoredRaw === raw) lastStoredRaw = cleaned;
+      } catch (_) { findingsCleanupFailed = true; }
+    }
+  }
+
+  function removeLegacyNotes() {
+    notesCleanupFailed = false;
+    removeLegacyFindings();
+    // Limpa também o modo ainda não aberto e cópias antigas de migração.
+    const entries = [...countingModes.map(value => [Session.key(value), true]), [PREVIOUS_STORAGE, false], [LEGACY_STORAGE, false]];
+    for (const [key, wrapped] of entries) {
+      try {
+        const raw = localStorage.getItem(key);
+        let data;
+        try { data = JSON.parse(raw); } catch (_) { continue; }
+        const savedState = wrapped ? data?.state : data;
+        if (!savedState || typeof savedState !== 'object' || !Object.hasOwn(savedState, 'notes')) continue;
+        delete savedState.notes;
+        const cleaned = JSON.stringify(data);
+        localStorage.setItem(key, cleaned);
+        if (key === storageKey && lastStoredRaw === raw) lastStoredRaw = cleaned;
+      } catch (_) { notesCleanupFailed = true; }
+    }
+  }
+
   function loadSession() {
     ({ state, layout } = Session.create(mode, newSessionLabel()));
     storageKey = Session.key(mode);
@@ -227,6 +281,7 @@
 
   function describe(entry, undone = false) {
     if (!entry) return 'Aguardando a primeira célula';
+    if (entry.type === 'fluid') return undone ? 'Última alteração em líquidos desfeita' : 'Registro em líquidos atualizado';
     if (entry.type === 'target') return undone ? `Meta restaurada para ${entry.from} células` : `Meta alterada para ${entry.to} células`;
     const name = Core.allCells(state).find(cell => cell.key === entry.key).name;
     return `${undone ? 'Desfeito: ' : ''}${entry.delta > 0 ? '+1' : '−1'} ${name}`;
@@ -347,41 +402,58 @@
   function renderProgress() {
     const total = Core.total(state);
     const ratio = Math.max(0, Math.min(1, total / state.target));
-    const color = state.paused ? 'var(--muted)' : progressColor(ratio);
+    const inactive = state.paused || restorePending || materialRequired();
+    const color = inactive ? 'var(--muted)' : progressColor(ratio);
     const fill = $('progress-fill');
     fill.style.width = `${ratio * 100}%`;
     fill.style.backgroundColor = color;
     $('progress').style.setProperty('--completion-color', color);
-    $('progress').classList.toggle('is-paused', state.paused);
+    $('progress').classList.toggle('is-paused', inactive);
+    const panel = $('progress').closest('.progress-panel');
+    panel.classList.toggle('is-disabled', restorePending || materialRequired());
+    panel.setAttribute('aria-disabled', String(restorePending || materialRequired()));
     const options = $('target-options');
     if (options.dataset.mode !== mode) {
-      options.innerHTML = Core.modeInfo(state).targets.map(target => `<button class="target-option" type="button" data-target="${target}" aria-pressed="false">
+      const targets = [...Core.modeInfo(state).targets, null];
+      options.style.setProperty('--target-options-count', targets.length);
+      options.innerHTML = targets.map(target => `<button class="target-option" type="button" data-target="${target ?? ''}"${target === null ? ' data-custom="true"' : ''} aria-pressed="false">
         <span class="target-gauge" aria-hidden="true">
           <svg viewBox="0 0 100 96" focusable="false"><path class="target-arc-track" d="M23.13 74.87 A38 38 0 1 1 76.87 74.87"/><path class="target-arc-fill" d="M23.13 74.87 A38 38 0 1 1 76.87 74.87" pathLength="100"/></svg>
-          <span class="target-count">0</span><span class="target-goal">${target}</span>
+          <span class="target-count">0</span><span class="target-goal">${target ?? 'Meta'}</span>
         </span><span class="target-choice-label" aria-hidden="true">Selecionar</span>
       </button>`).join('');
       options.dataset.mode = mode;
     }
     for (const button of options.querySelectorAll('.target-option')) {
+      const custom = button.dataset.custom === 'true';
+      if (custom) button.dataset.target = state.customTarget == null ? '' : String(state.customTarget);
       const target = Number(button.dataset.target);
-      const progress = Math.max(0, Math.min(1, total / target));
-      const selected = target === state.target;
+      const unset = custom && !target;
+      const progress = unset ? 0 : Math.max(0, Math.min(1, total / target));
+      const selected = !unset && target === state.target && (custom === (state.targetSource === 'custom'));
       const tone = selected ? color : 'var(--muted)';
-      button.disabled = state.paused || restorePending || editingLayout;
+      button.disabled = state.paused || restorePending || editingLayout || materialRequired();
+      button.classList.toggle('is-unset', unset);
       button.setAttribute('aria-pressed', String(selected));
-      button.setAttribute('aria-label', `Meta de ${target} células: ${total} contadas, ${Math.round(progress * 100)}% concluída`);
-      button.title = target < total ? `Meta atingida. O total atual de ${total} células excede este alvo.` : `Selecionar meta de ${target} células`;
+      button.setAttribute('aria-label', unset ? 'Definir meta personalizada' : `${custom ? 'Editar meta personalizada' : 'Meta'} de ${target} células: ${total} contadas, ${Math.round(progress * 100)}% concluída`);
+      button.title = custom ? (unset ? 'Definir meta personalizada' : `Editar meta personalizada de ${target} células`) : target < total ? `Meta atingida. O total atual de ${total} células excede este alvo.` : `Selecionar meta de ${target} células`;
       button.style.setProperty('--completion-color', tone);
       const count = button.querySelector('.target-count');
-      count.textContent = total;
-      count.dataset.digits = String(total).length;
-      button.querySelector('.target-choice-label').textContent = selected ? 'Selecionada' : 'Selecionar';
+      count.textContent = unset ? 'X' : gaugeNumber(total);
+      count.dataset.digits = Math.min(4, String(count.textContent).length);
+      const goal = button.querySelector('.target-goal');
+      goal.textContent = unset ? 'Meta' : gaugeNumber(target);
+      goal.dataset.long = String(goal.textContent.length > 6);
+      button.querySelector('.target-choice-label').textContent = custom ? (unset ? 'Definir' : 'Editar') : selected ? 'Selecionada' : 'Selecionar';
       const arc = button.querySelector('.target-arc-fill');
       arc.style.strokeDashoffset = String(100 - progress * 100);
       arc.style.stroke = tone;
-      arc.style.opacity = total ? '1' : '0';
+      arc.style.opacity = !unset && total ? '1' : '0';
     }
+  }
+
+  function gaugeNumber(value) {
+    return value < 10000 ? String(value) : new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
   }
 
   function updateFocusShield() {
@@ -462,14 +534,16 @@
   function render() {
     const n = Core.total(state);
     const finished = Core.complete(state);
-    const blocked = state.paused || restorePending || editingLayout;
+    const navigationBlocked = state.paused || restorePending || editingLayout;
+    const needsMaterial = materialRequired();
+    const blocked = navigationBlocked || needsMaterial;
     document.body.classList.toggle('editing-layout', editingLayout);
-    $('count-title').textContent = editingLayout ? 'Editar células' : mode === 'marrow' ? 'Contagem de medula óssea' : 'Contagem diferencial';
+    $('count-title').textContent = editingLayout ? 'Editar células' : mode === 'fluids' ? 'Contagem de líquidos nobres' : mode === 'marrow' ? 'Contagem de medula óssea' : 'Contagem diferencial';
     $('session-name').textContent = state.sessionLabel.name;
     $('session-name').setAttribute('aria-label', `Sessão: ${state.sessionLabel.name}`);
     $('session-code').textContent = state.sessionLabel.shortID;
     $('session-code').setAttribute('aria-label', `Código da sessão: ${state.sessionLabel.shortID}`);
-    $('count-hint').textContent = mode === 'marrow' ? 'N: neutrófilos · Eo: eosinófilos · Ba: basófilos' : 'Toque para contar · Use as teclas indicadas';
+    $('count-hint').textContent = mode === 'fluids' ? needsMaterial ? 'Escolha o material para liberar a contagem' : fluidView?.tab === 'differential' ? `Diferencial de ${Fluids.differentialDenominator(state.fluid)} · porcentagens sobre as células contadas` : 'Câmara e diferencial · contagens independentes' : mode === 'marrow' ? 'N: neutrófilos · Eo: eosinófilos · Ba: basófilos' : 'Toque para contar · Use as teclas indicadas';
     renderModeControl();
     document.body.dataset.mode = mode;
     document.title = `Contador de Células · ${Core.modeInfo(state).name}`;
@@ -483,26 +557,47 @@
     $('add-cell-button').title = $('add-cell-button').disabled ? 'Todas as teclas disponíveis estão em uso' : 'Adicionar célula';
     $('last-action').hidden = editingLayout;
     $('edit-status').hidden = !editingLayout;
-    $('edit-button').disabled = restorePending;
-    document.querySelectorAll('[data-new]').forEach(button => { button.disabled = editingLayout; });
+    const fluidOther = mode === 'fluids' && fluidView?.tab !== 'differential';
+    $('edit-button').disabled = restorePending || fluidOther || needsMaterial;
+    $('edit-button').hidden = fluidOther;
+    $('cell-grid-home').hidden = fluidOther;
+    $('cell-grid').hidden = fluidOther || needsMaterial;
+    $('fluid-material-empty').hidden = !needsMaterial;
+    $('fluid-material-field').hidden = mode !== 'fluids';
+    if (mode === 'fluids') {
+      $('fluid-material').value = needsMaterial ? '' : state.fluid.material;
+      $('fluid-material').disabled = navigationBlocked || Core.hasProgress(state);
+      $('fluid-material').title = Core.hasProgress(state) ? 'Inicie uma nova contagem para mudar o material.' : 'Organização das células salva separadamente por material.';
+    }
+    fluidView?.render(blocked, editingLayout, blocked);
+    $('progress').closest('.progress-overview').hidden = fluidOther;
+    $('fluid-progress-context').hidden = !fluidOther;
+    $('fluid-progress-context').textContent = needsMaterial ? 'Selecione o material para começar' : restorePending ? 'Sessão aguardando confirmação' : state.paused ? 'Contagem pausada' : mode === 'fluids' ? `${Fluids.MATERIALS.find(m => m.key === state.fluid.material).name} · Contagem em câmara` : '';
+    $('target-options').closest('.target-selector').hidden = mode === 'fluids' && fluidView?.tab !== 'differential';
+    $('target-options-label').textContent = mode === 'fluids' ? 'META DO DIFERENCIAL' : 'META DE CONTAGEM';
+    document.querySelectorAll('[data-new]').forEach(button => {
+      button.disabled = editingLayout || ((restorePending || needsMaterial) && !button.closest('#restore-banner'));
+    });
     $('total').textContent = n;
     $('target-label').textContent = state.target;
-    $('remaining').textContent = finished ? 'Meta atingida' : `Faltam ${state.target - n}`;
+    $('remaining').textContent = mode === 'fluids' && state.fluid.differential.closedLowCellularity ? 'Baixa celularidade' : finished ? 'Meta atingida' : `Faltam ${state.target - n}`;
     renderProgress();
     $('progress').setAttribute('aria-valuenow', String(n));
     $('progress').setAttribute('aria-valuemax', String(state.target));
     $('progress').setAttribute('aria-valuetext', `${n} de ${state.target} células`);
-    $('state-text').textContent = editingLayout ? 'Edição · contagem suspensa' : restorePending ? (restoreError ? 'Recuperação indisponível' : 'Sessão recuperada') : state.paused ? 'Contagem pausada' : finished ? 'Concluída' : Core.hasProgress(state) ? 'Em contagem' : 'Pronta para contar';
+    $('state-text').textContent = needsMaterial ? 'Selecione o material' : editingLayout ? 'Edição · contagem suspensa' : restorePending ? (restoreError ? 'Recuperação indisponível' : 'Sessão recuperada') : state.paused ? 'Contagem pausada' : finished ? 'Concluída' : Core.hasProgress(state) ? 'Em contagem' : 'Pronta para contar';
     $('state-label').dataset.status = restorePending ? 'restore' : state.paused ? 'paused' : finished ? 'complete' : 'active';
-    $('pause-button').disabled = restorePending || editingLayout;
+    $('pause-button').disabled = restorePending || editingLayout || needsMaterial;
     $('pause-button').setAttribute('aria-pressed', String(state.paused));
     $('pause-button').querySelector('span').textContent = state.paused ? 'Retomar' : 'Pausar';
     icon($('pause-button'), state.paused ? 'play' : 'pause');
     $('undo-button').disabled = blocked || !state.history.length;
-    $('summary-button').disabled = restoreError;
-    if ($('new-target').dataset.mode !== mode) {
-      $('new-target').innerHTML = Core.modeInfo(state).targets.map(target => `<option value="${target}">${target} células</option>`).join('');
-      $('new-target').dataset.mode = mode;
+    $('summary-button').disabled = restorePending || restoreError || needsMaterial;
+    const targetSignature = `${mode}:${state.customTarget ?? ''}`;
+    if ($('new-target').dataset.signature !== targetSignature) {
+      $('new-target').innerHTML = Core.modeInfo(state).targets.map(target => `<option value="${target}">${target} células</option>`).join('')
+        + (state.customTarget ? `<option value="custom">${state.customTarget} células · personalizada</option>` : '');
+      $('new-target').dataset.signature = targetSignature;
     }
     $('counting').classList.toggle('is-paused', blocked && !editingLayout);
     $('last-action').textContent = lastAction;
@@ -515,7 +610,7 @@
       cell.value.dataset.digits = Math.min(4, String(value).length);
       cell.value.classList.toggle('is-zero', value === 0);
       const assigned = layout.bindings[cell.key];
-      cell.add.disabled = !editingLayout && (blocked || (finished && !cell.excluded));
+      cell.add.disabled = !editingLayout && (blocked || (mode === 'fluids' && state.fluid.differential.closedLowCellularity) || (finished && !cell.excluded));
       cell.add.setAttribute('aria-label', editingLayout ? `${cell.name}. Segure e arraste para mover, ou use Alt e as setas.` : `Adicionar ${cell.name.toLowerCase()}. Contagem: ${value}. Tecla ${assigned.toUpperCase()}.`);
       cell.add.setAttribute('aria-keyshortcuts', assigned);
       cell.add.title = `${cell.name}${cell.excluded ? ' · Fora do total global' : ''} · Tecla ${assigned.toUpperCase()}`;
@@ -532,7 +627,7 @@
       cell.remove.disabled = blocked || value === 0;
       cell.tile.dataset.last = String(cell.key === lastKey);
     }
-    $('completion-banner').hidden = !finished || restorePending || editingLayout;
+    $('completion-banner').hidden = mode === 'fluids' || !finished || restorePending || editingLayout;
     $('restore-banner').hidden = !restorePending;
     $('resume-button').hidden = restoreError;
     if (restorePending) {
@@ -540,21 +635,29 @@
       const date = state.updatedAt ? new Date(state.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : null;
       $('restore-detail').textContent = restoreError
         ? 'Os dados salvos não puderam ser lidos. Inicie uma nova contagem para continuar.'
-        : `${Core.modeInfo(state).name} · ${n} de ${state.target} células${date ? ` · ${date}` : ''}.`;
+        : `${Core.modeInfo(state).name}${mode === 'fluids' ? ' · câmara e diferencial recuperados' : ` · ${n} de ${state.target} células`}${date ? ` · ${date}` : ''}.`;
       $('resume-button').textContent = finished ? 'Revisar contagem' : 'Continuar';
     }
-    $('save-indicator').dataset.status = storageFailed || layoutDirty ? 'error' : state.updatedAt && !restorePending ? 'saved' : 'idle';
-    $('save-label').textContent = layoutDirty ? 'Organização ainda não salva neste navegador' : storageFailed ? (dirty ? 'Alterações ainda não salvas neste navegador' : 'Salvamento indisponível neste navegador') : restorePending ? 'Sessão aguardando confirmação' : state.updatedAt ? 'Salvo neste navegador' : 'Salvamento automático neste navegador';
-    $('retry-save').hidden = (!storageFailed && !layoutDirty) || restorePending;
+    renderStorageStatus();
     if ($('summary-dialog').open) renderSummary();
     scheduleGrid();
   }
 
+  function renderStorageStatus() {
+    $('save-indicator').dataset.status = notesCleanupFailed || findingsCleanupFailed || storageFailed || layoutDirty ? 'error' : state.updatedAt && !restorePending ? 'saved' : 'idle';
+    $('save-label').textContent = findingsCleanupFailed ? 'Não foi possível limpar dados antigos deste navegador' : notesCleanupFailed ? 'Não foi possível remover observações antigas deste navegador' : layoutDirty ? 'Organização ainda não salva neste navegador' : storageFailed ? (dirty ? 'Alterações ainda não salvas neste navegador' : 'Salvamento indisponível neste navegador') : restorePending ? 'Sessão aguardando confirmação' : state.updatedAt ? 'Salvo neste navegador' : 'Salvamento automático neste navegador';
+    $('retry-save').hidden = (!notesCleanupFailed && !findingsCleanupFailed && !storageFailed && !layoutDirty) || restorePending;
+  }
+
   function renderSummary() {
     const n = Core.total(state);
-    $('summary-title').textContent = Core.complete(state) ? 'Contagem concluída' : 'Resumo parcial';
+    $('summary-title').textContent = mode === 'fluids' ? 'Resumo de líquidos nobres' : Core.complete(state) ? 'Contagem concluída' : 'Resumo parcial';
     $('summary-total').textContent = `${n} células`;
     $('summary-target').textContent = `Meta: ${state.target}`;
+    const duration = Core.sessionDuration(state);
+    $('summary-duration').textContent = duration === null
+      ? state.timing === null ? 'Não registrada nesta sessão' : 'Ainda não iniciada'
+      : Core.formatDuration(duration);
     $('summary-mode').textContent = Core.modeInfo(state).name;
     $('summary-session-name').textContent = state.sessionLabel.name;
     $('summary-session-id').textContent = state.sessionLabel.shortID;
@@ -563,12 +666,20 @@
       ? Core.series(state).map(group => `<tr class="summary-series-row"><th scope="row">${group.name}</th><td>${group.count}</td><td>${Core.formatPercent(group.percentage)}</td></tr>${group.entries.map(row).join('')}`).join('')
       : Core.allCells(state).filter(cell => !cell.excluded).map(row).join('');
     $('summary-excluded').innerHTML = Core.allCells(state).filter(cell => cell.excluded).map(cell => `<div class="ery-summary"><span>${escapeHTML(cell.name)}<small>Fora do total global</small></span><strong>${state.counts[cell.key]}</strong></div>`).join('');
-    $('summary-note').textContent = n ? `Percentuais sobre ${n} células do total global, com arredondamento. As contagens separadas ficam fora do denominador.` : 'Os percentuais aparecem após o primeiro registro no total global.';
+    $('fluid-summary').hidden = mode !== 'fluids';
+    $('summary-cell-table').hidden = mode === 'fluids';
+    $('summary-excluded').hidden = mode === 'fluids';
+    $('summary-total').textContent = mode === 'fluids' ? `${n} células no diferencial` : `${n} células`;
+    $('summary-duration').parentElement.title = mode === 'fluids' ? 'Tempo desde o primeiro registro, incluindo pausas e as duas áreas da sessão.' : 'Tempo desde a primeira célula, incluindo pausas, até atingir a meta.';
+    $('fluid-summary').innerHTML = mode === 'fluids' ? FluidView.summary(state) : '';
+    $('summary-note').textContent = mode === 'fluids' ? 'Câmara e diferencial são contagens independentes. A duração inclui pausas e continua enquanto a sessão estiver aberta.' : n ? `Percentuais sobre ${n} células do total global, com arredondamento. As contagens separadas ficam fora do denominador.` : 'Os percentuais aparecem após o primeiro registro no total global.';
     $('report-text').value = Core.report(state);
   }
 
   function modalOpen() { return dialogs.some(dialog => dialog.open); }
-  function canCount() { return windowFocused && !editingLayout && !restorePending && !state.paused && !modalOpen() && document.visibilityState !== 'hidden'; }
+  function materialRequired() { return mode === 'fluids' && state.fluid.materialSelected === false; }
+  function canInteract() { return windowFocused && !editingLayout && !restorePending && !state.paused && !modalOpen() && document.visibilityState !== 'hidden'; }
+  function canCount() { return canInteract() && !materialRequired(); }
 
   function flash(key, delta) {
     const cell = cells.get(key);
@@ -603,9 +714,11 @@
       const oscillator = audioContext.createOscillator();
       const gain = audioContext.createGain();
       const now = audioContext.currentTime;
-      oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(delta > 0 ? 900 : 420, now);
-      const duration = delta > 0 ? .045 : .085;
+      // Zero identifica a negação: um tom descendente, distinto dos registros.
+      oscillator.type = delta === 0 ? 'triangle' : 'sine';
+      oscillator.frequency.setValueAtTime(delta === 0 ? 240 : delta > 0 ? 900 : 420, now);
+      const duration = delta === 0 ? .16 : delta > 0 ? .045 : .085;
+      if (delta === 0) oscillator.frequency.exponentialRampToValueAtTime(120, now + duration);
       gain.gain.setValueAtTime(0, now);
       gain.gain.linearRampToValueAtTime(preferences.volume / 100 * .22, now + .004);
       gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
@@ -624,8 +737,19 @@
     finishAudio.play().catch(() => { tone(1, true); });
   }
 
+  function notifyCompletion(wasFinished) {
+    if (wasFinished || !Core.complete(state)) return false;
+    $('completion-dialog-title').textContent = mode === 'fluids' ? 'Diferencial concluído' : 'Contagem concluída';
+    $('completion-message').textContent = mode === 'fluids' ? `${state.fluid.differential.closedLowCellularity ? 'O diferencial foi encerrado por baixa celularidade' : 'A meta do diferencial foi atingida'} com ${Core.total(state)} células. A contagem em câmara continua disponível.` : `A meta de ${state.target} células foi atingida. Feche este aviso para consultar o resumo ou corrigir a contagem.`;
+    openDialog('completion-dialog');
+    $('close-completion').focus();
+    finishSound();
+    announce(`Contagem concluída: ${Core.total(state)} células. Resultado disponível.`);
+    return true;
+  }
+
   function record(key, delta) {
-    if (!canCount()) return;
+    if (!canCount() || (mode === 'fluids' && fluidView.tab !== 'differential')) return;
     const result = Core.change(state, key, delta);
     if (!result.changed) {
       if (result.reason === 'complete') toast('Meta atingida. Você pode corrigir ou iniciar uma nova contagem.');
@@ -637,11 +761,7 @@
     lastAction = describe(result.entry);
     render();
     flash(key, delta);
-    const nowFinished = Core.complete(state);
-    if (!wasFinished && nowFinished) {
-      finishSound();
-      announce(`Contagem concluída: ${Core.total(state)} células. Resultado disponível.`);
-    } else {
+    if (!notifyCompletion(wasFinished)) {
       tone(delta);
       announce(`${lastAction}. Total: ${Core.total(state)} de ${state.target}.`);
     }
@@ -649,13 +769,17 @@
 
   function undo() {
     if (!canCount()) return;
+    const wasFinished = Core.complete(state);
     const result = Core.undo(state);
     if (!result.changed || !commit(result.state)) return;
     lastKey = result.entry.key || null;
     lastAction = describe(result.entry, true);
     render();
-    if (result.entry.type === 'count') { flash(result.entry.key, -result.entry.delta); tone(-result.entry.delta); }
-    announce(`${lastAction}. Total: ${Core.total(state)}.`);
+    if (result.entry.type === 'count') flash(result.entry.key, -result.entry.delta);
+    if (!notifyCompletion(wasFinished)) {
+      if (result.entry.type === 'count') tone(-result.entry.delta);
+      announce(`${lastAction}. Total: ${Core.total(state)}.`);
+    }
   }
 
   function bindCellInput(cell) {
@@ -704,7 +828,7 @@
   }
 
   function showSummary() {
-    if (restoreError) return;
+    if (restorePending || restoreError || materialRequired()) return;
     renderSummary();
     $('copy-fallback').hidden = true;
     $('copy-status').textContent = '';
@@ -712,27 +836,47 @@
   }
 
   function showNew() {
-    $('new-target').value = String(state.target);
+    const hasContent = Core.hasProgress(state);
+    $('new-target').value = state.targetSource === 'custom' ? 'custom' : String(state.target);
     $('new-description').textContent = restoreError
       ? 'Iniciar uma nova contagem substitui a sessão que não pôde ser recuperada.'
-      : Core.hasProgress(state)
-        ? `Os ${Core.total(state)} registros do total global e todas as contagens separadas serão zerados. Suas células, posições e teclas serão mantidas.`
+      : hasContent
+        ? mode === 'fluids' ? 'A contagem em câmara e o diferencial deste modo serão zerados. Um novo nome de sessão será gerado.' : `Os ${Core.total(state)} registros do total global e todas as contagens separadas serão zerados. Suas células, posições e teclas serão mantidas.`
         : 'Escolha a meta para começar.';
-    $('confirm-new').textContent = Core.hasProgress(state) || restoreError ? 'Zerar e iniciar' : 'Iniciar contagem';
-    $('confirm-new').classList.toggle('danger', Core.hasProgress(state) || restoreError);
-    $('confirm-new').classList.toggle('primary', !Core.hasProgress(state) && !restoreError);
+    $('confirm-new').textContent = hasContent || restoreError ? 'Zerar e iniciar' : 'Iniciar contagem';
+    $('confirm-new').classList.toggle('danger', hasContent || restoreError);
+    $('confirm-new').classList.toggle('primary', !hasContent && !restoreError);
     $('new-mode-hint').textContent = `${Core.modeInfo(state).name}. Apenas a contagem deste modo será reiniciada.`;
     openDialog('new-dialog');
   }
 
-  function changeTarget(target) {
+  function changeTarget(target, source = 'preset') {
     if (state.paused) return;
-    const result = Core.setTarget(state, target);
+    const wasFinished = Core.complete(state);
+    const result = source === 'custom' ? Core.setCustomTarget(state, target) : Core.setTarget(state, target);
     if (!result.changed) return;
     if (!commit(result.state)) return;
     lastAction = describe(result.entry);
     render();
-    announce(lastAction);
+    if (!notifyCompletion(wasFinished)) announce(lastAction);
+  }
+
+  function requestTargetChange(target, source = 'preset') {
+    if (state.target === target && state.targetSource === source) return;
+    if (!Core.complete(state)) { changeTarget(target, source); return; }
+    pendingTarget = { target, source };
+    $('target-description').textContent = `Alterar a meta de ${state.target} para ${target} células${source === 'custom' ? ' (personalizada)' : ''}? O total atual é ${Core.total(state)}.`;
+    openDialog('target-dialog');
+  }
+
+  function showCustomTarget() {
+    const input = $('custom-target-input');
+    input.value = state.customTarget == null ? '' : String(state.customTarget);
+    input.setAttribute('aria-invalid', 'false');
+    $('custom-target-feedback').textContent = '';
+    openDialog('custom-target-dialog');
+    input.focus();
+    input.select();
   }
 
   async function copyResult() {
@@ -752,23 +896,26 @@
     if (copied) { $('copy-fallback').hidden = true; $('copy-result').focus(); }
   }
 
-  function downloadCSV() {
-    const blob = new Blob([Core.csv(state)], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    const now = new Date();
-    const pad = value => String(value).padStart(2, '0');
-    link.href = url;
-    link.download = `contagem-${mode === 'marrow' ? 'medula-ossea' : 'sangue-periferico'}-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}.csv`;
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
-    $('copy-status').textContent = 'Arquivo CSV preparado para download.';
+  function preparePrint() {
+    const report = $('print-summary');
+    report.replaceChildren();
+    if (restorePending || restoreError || editingLayout || materialRequired()) return false;
+    report.innerHTML = PrintSummary.render(state, {
+      appName: document.querySelector('.brand-title').textContent,
+      version: document.querySelector('.version').textContent,
+      address: document.baseURI
+    });
+    return true;
+  }
+
+  function printSummary() {
+    if (!$('summary-dialog').open || !preparePrint()) return;
+    try { window.print(); }
+    catch (_) { $('copy-status').textContent = 'Não foi possível abrir a impressão. Use a opção Imprimir do navegador.'; }
   }
 
   function startEditing() {
-    if (restorePending || modalOpen()) return;
+    if ((mode === 'fluids' && fluidView.tab !== 'differential') || restorePending || modalOpen() || materialRequired()) return;
     editingLayout = true;
     editor.setEnabled(true);
     $('edit-status').textContent = layoutDirty ? 'Organização ainda não salva neste navegador.' : 'Células, grupos, cores e atalhos são salvos neste navegador.';
@@ -1014,11 +1161,25 @@
     $('finish-edit-button').addEventListener('click', finishEditing);
     $('restore-layout-button').addEventListener('click', () => openDialog('layout-reset-dialog'));
     $('confirm-reset-layout').addEventListener('click', () => {
-      const next = Layout.create(state.customCells, mode, state.deletedCells, state.cellNames, Core.visualSettings(state));
-      if (!saveLayout(next)) return;
-      editor.applyOrder(next.order);
+      if (!editingLayout || !$('layout-reset-dialog').open) return;
+      const result = Session.restoreDefaultLayout(state, layout);
+      if (!result.changed) {
+        $('layout-reset-dialog').close();
+        const message = result.reason === 'limit'
+          ? `Para restaurar todas as células padrão, remova ${result.requiredSlots} célula${result.requiredSlots === 1 ? '' : 's'} personalizada${result.requiredSlots === 1 ? '' : 's'}. O limite é de 37 células.`
+          : 'Não foi possível restaurar o padrão. A sessão foi mantida.';
+        toast(message);
+        announce(message);
+        return;
+      }
+      if (!commit(result.state, result.layout)) return;
+      layoutDirty = dirty;
+      editor.finishSettling();
+      buildCells(true);
+      editor.applyOrder(layout.order, false);
+      render();
       $('layout-reset-dialog').close();
-      announce('Posições e teclas restauradas. Células personalizadas e contagens mantidas.');
+      announce('Células padrão, posições e teclas restauradas. Células personalizadas e contagens atuais mantidas.');
     });
     $('key-input').addEventListener('input', keyFeedback);
     $('edit-cell-name').addEventListener('input', keyFeedback);
@@ -1114,6 +1275,7 @@
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(scheduleGrid);
       observer.observe($('cell-grid'));
+      observer.observe($('cell-grid-home'));
       observer.observe($('progress').closest('.progress-panel'));
     }
     window.addEventListener('resize', scheduleGrid);
@@ -1126,7 +1288,7 @@
     $('mode-select').addEventListener('change', selectMode);
     $('undo-button').addEventListener('click', undo);
     $('pause-button').addEventListener('click', () => {
-      if (restorePending || editingLayout || modalOpen()) return;
+      if (restorePending || editingLayout || modalOpen() || materialRequired()) return;
       const next = { ...state, paused: !state.paused, updatedAt: new Date().toISOString() };
       if (!commit(next)) return;
       render();
@@ -1141,17 +1303,26 @@
       announce('Contagem retomada.');
     });
     $('retry-save').addEventListener('click', () => {
-      if (commit(state)) { render(); if (!dirty && !layoutDirty) toast('Alterações salvas neste navegador.'); }
+      removeLegacyNotes();
+      if (commit(state)) { render(); if (!notesCleanupFailed && !findingsCleanupFailed && !dirty && !layoutDirty) toast('Alterações salvas neste navegador.'); }
     });
     for (const id of ['summary-button', 'completion-summary']) $(id).addEventListener('click', showSummary);
-    document.querySelectorAll('[data-new]').forEach(button => button.addEventListener('click', showNew));
+    document.querySelectorAll('[data-new]').forEach(button => button.addEventListener('click', () => {
+      if ((restorePending || materialRequired()) && !button.closest('#restore-banner')) return;
+      showNew();
+    }));
     $('confirm-new').addEventListener('click', () => {
       if (restoreError) {
         try { localStorage.setItem(`cellCounterRecovery_v4_${mode}`, lastStoredRaw ?? localStorage.getItem(PREVIOUS_STORAGE) ?? localStorage.getItem(LEGACY_STORAGE) ?? ''); } catch (_) {}
       }
-      const next = Core.create(Number($('new-target').value), state.customCells, mode, state.deletedCells, state.cellNames, Core.visualSettings(state), newSessionLabel());
-      next.updatedAt = new Date().toISOString();
-      if (!commit(next)) return;
+      const source = $('new-target').value === 'custom' ? 'custom' : 'preset';
+      const target = source === 'custom' ? state.customTarget : Number($('new-target').value), label = newSessionLabel();
+      const fresh = mode === 'fluids' ? Session.newFluidCount(state, layout, target, label, source) : {
+        state: Core.create(target, state.customCells, mode, state.deletedCells, state.cellNames, Core.visualSettings(state), label, undefined, { customTarget: state.customTarget, targetSource: source }), layout
+      };
+      if (mode === 'fluids' && !fresh.changed) return;
+      fresh.state.updatedAt = new Date().toISOString();
+      if (!commit(fresh.state, fresh.layout)) return;
       restorePending = false;
       restoreError = false;
       recoveredExternally = false;
@@ -1165,21 +1336,44 @@
     $('target-options').addEventListener('click', event => {
       const button = event.target.closest('.target-option');
       if (!button) return;
+      if (state.paused || restorePending || editingLayout || modalOpen() || materialRequired()) return;
+      if (button.dataset.custom === 'true') { showCustomTarget(); return; }
       const target = Number(button.dataset.target);
-      if (state.paused || restorePending || editingLayout || modalOpen() || !Core.modeInfo(state).targets.includes(target) || target === state.target) return;
+      if (!Core.modeInfo(state).targets.includes(target)) return;
       if (target < Core.total(state)) { toast(`Você já contou ${Core.total(state)} células. Escolha uma meta igual ou maior que esse total.`); return; }
-      if (!Core.complete(state)) { changeTarget(target); return; }
-      pendingTarget = target;
-      $('target-description').textContent = `Alterar a meta de ${state.target} para ${target} células? O total atual é ${Core.total(state)}.`;
-      openDialog('target-dialog');
+      requestTargetChange(target);
     });
     $('confirm-target').addEventListener('click', () => {
-      const target = pendingTarget;
+      const pending = pendingTarget;
       $('target-dialog').close();
-      if (target !== null) changeTarget(target);
+      if (pending !== null) changeTarget(pending.target, pending.source);
+    });
+    $('custom-target-input').addEventListener('input', () => {
+      $('custom-target-input').setAttribute('aria-invalid', 'false');
+      $('custom-target-feedback').textContent = '';
+    });
+    $('custom-target-form').addEventListener('submit', event => {
+      event.preventDefault();
+      if (state.paused || restorePending || editingLayout || materialRequired()) return;
+      const input = $('custom-target-input');
+      const value = input.value.trim();
+      const target = Number(value);
+      const invalid = !/^\d+$/.test(value) || !Number.isSafeInteger(target) || target <= 0;
+      const message = invalid ? 'Digite um número inteiro maior que zero, sem casas decimais.'
+        : target < Core.total(state) ? `Você já contou ${Core.total(state)} células. A meta deve ser igual ou maior que esse total.` : '';
+      if (message) {
+        input.setAttribute('aria-invalid', 'true');
+        $('custom-target-feedback').textContent = message;
+        input.focus();
+        return;
+      }
+      $('custom-target-dialog').close();
+      requestTargetChange(target, 'custom');
     });
     $('copy-result').addEventListener('click', copyResult);
-    $('download-csv').addEventListener('click', downloadCSV);
+    $('print-summary-button').addEventListener('click', printSummary);
+    window.addEventListener('beforeprint', preparePrint);
+    window.addEventListener('afterprint', () => { $('print-summary').replaceChildren(); });
     $('settings-button').addEventListener('click', () => { renderPreferences(); openDialog('settings-dialog'); });
     $('help-button').addEventListener('click', () => openDialog('help-dialog'));
     $('info-button').addEventListener('click', () => openDialog('info-dialog'));
@@ -1210,14 +1404,24 @@
     });
     document.addEventListener('keydown', event => {
       const target = event.target;
+      if ($('completion-dialog').open) {
+        // Mantém Tab, Escape e o botão de fechar acessíveis pelo teclado.
+        // Uma tecla mantida pressionada não repete sons nem fecha o aviso.
+        if (event.repeat) {
+          if (['Enter', ' '].includes(event.key)) event.preventDefault();
+        } else if (windowFocused && document.visibilityState !== 'hidden') tone(0, true);
+        return;
+      }
       // Enter pressionado em um botão nativo também pode repetir cliques.
-      if (event.repeat && ['Enter', ' '].includes(event.key) && target instanceof Element && target.closest('.cell-add,.cell-remove')) {
+      if (event.repeat && ['Enter', ' '].includes(event.key) && target instanceof Element && (target.closest('.cell-add,.cell-remove') || ((target.closest('#fluid-panel') || target.closest('#fluid-tabs') || target.closest('.fluid-finish-button')) && target.closest('button')))) {
         event.preventDefault();
         return;
       }
+      const typing = target instanceof Element && Boolean(target.closest('input,textarea,select,[role="textbox"]') || target.isContentEditable);
+      if (mode === 'fluids' && !typing && fluidView.key(event)) return;
       const action = Core.shortcut(event, {
         blocked: !canCount(),
-        bindings: layout.bindings,
+        bindings: mode === 'fluids' && fluidView.tab !== 'differential' ? {} : layout.bindings,
         editing: target instanceof Element && Boolean(target.closest('input,textarea,select,[role="textbox"]') || target.isContentEditable)
       });
       if (!action) return;
@@ -1243,6 +1447,10 @@
       for (const cachedMode of Object.keys(Core.MODES)) if (cachedMode !== mode && event.key === Session.key(cachedMode)) {
         if (!sessionCache.get(cachedMode)?.dirty) sessionCache.delete(cachedMode);
       }
+      if ([...countingModes.map(Session.key), PREVIOUS_STORAGE, LEGACY_STORAGE].includes(event.key)) {
+        removeLegacyNotes();
+        renderStorageStatus();
+      }
     });
   }
 
@@ -1251,8 +1459,44 @@
     if (Object.hasOwn(Core.MODES, storedMode)) mode = storedMode;
   } catch (_) {}
   loadPreferences();
+  removeLegacyNotes();
   loadSession();
   buildCells();
+  $('fluid-material').innerHTML = '<option value="" disabled>Selecionar material</option>' + Fluids.MATERIALS.map(material => `<option value="${material.key}">${escapeHTML(material.name)}</option>`).join('');
+  $('fluid-material').addEventListener('change', () => {
+    if (mode !== 'fluids' || !canInteract()) { render(); return; }
+    const result = Session.switchFluidMaterial(state, layout, $('fluid-material').value);
+    if (!result.changed || !commit(result.state, result.layout)) { render(); return; }
+    lastKey = null;
+    lastAction = 'Material selecionado';
+    buildCells(true);
+    editor.applyOrder(layout.order);
+    render();
+  });
+  fluidView = FluidView.create($('fluid-panel'), {
+    getState: () => state, allowed: () => mode === 'fluids' && canCount(), canNavigate: () => mode === 'fluids' && canCount(), changed: render, notify: toast,
+    apply: (result, message, delta) => {
+      if (mode !== 'fluids' || !canCount()) return;
+      const wasFinished = Core.complete(state);
+      const updated = Core.updateFluid(state, result);
+      if (!updated.changed || !commit(updated.state)) return;
+      lastAction = message;
+      render();
+      if (!notifyCompletion(wasFinished)) { if (delta) tone(delta); announce(message); }
+    },
+    confirm: (title, message, action) => {
+      fluidConfirmation = action;
+      $('fluid-confirm-title').textContent = title;
+      $('fluid-confirm-message').textContent = message;
+      openDialog('fluid-confirm-dialog');
+    }
+  });
+  $('fluid-confirm-accept').addEventListener('click', () => {
+    const action = fluidConfirmation;
+    $('fluid-confirm-dialog').close();
+    if (canCount()) action?.();
+  });
+  $('fluid-confirm-dialog').addEventListener('close', () => { fluidConfirmation = null; });
   bindControls();
   bindEditing();
   const copyrightYears = `2016–${new Date().getFullYear()}`;

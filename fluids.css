@@ -1,0 +1,172 @@
+/* Líquidos: dois espaços de trabalho, sem misturar os denominadores. */
+.fluid-panel { min-width:0; min-height:0; }
+
+.fluid-field { display:flex; flex-direction:column; gap:5px; min-width:0; color:var(--muted); font-size:12px; }
+.fluid-field input,.fluid-field select { width:100%; min-width:0; min-height:38px; padding:8px 10px; font:inherit; font-size:13px; color:var(--ink); border:1px solid var(--line); border-radius:9px; background:var(--surface); }
+.fluid-tabs { display:flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:13px; background:var(--surface); }
+.fluid-tabs .button { border-color:transparent; background:transparent; }
+.fluid-tabs [aria-pressed="true"] { background:var(--tint); color:var(--accent); border-color:var(--line); }
+.fluid-workspace { border:1px solid var(--line); border-radius:16px; padding:18px; background:var(--surface); }
+.fluid-workspace > .field-help { margin:0 0 12px; }
+.fluid-chamber-config { display:grid; grid-template-columns:1.2fr 1.2fr 1fr 1fr auto; align-items:end; gap:12px; margin-bottom:10px; }
+.fluid-chamber-grid { display:grid; grid-template-columns:1fr 1fr 1.05fr; gap:14px; margin-top:14px; }
+.fluid-side,.fluid-concentration { border:1px solid var(--line); background:var(--soft); border-radius:13px; padding:16px; }
+.fluid-side h3 { margin:0; font-size:14px; font-weight:600; }
+.fluid-side-title { display:flex; align-items:center; justify-content:space-between; }
+.fluid-counter { display:flex; align-items:center; gap:12px; margin:12px 0; }
+.fluid-counter input { width:100%; min-width:0; font-size:30px; font-weight:600; text-align:center; border:0; background:transparent; color:var(--ink); font-variant-numeric:tabular-nums; appearance:textfield; }
+.fluid-counter input::-webkit-inner-spin-button { appearance:none; }
+.fluid-counter .button { width:36px; min-width:36px; font-size:20px; }
+.fluid-side > .button { width:100%; }
+.fluid-side > [aria-pressed="true"] { background:var(--tint); color:var(--accent); }
+.fluid-side .field-help { margin:8px 0 0; font-size:11px; }
+.fluid-concentration { display:flex; flex-direction:column; justify-content:center; text-align:center; gap:6px; }
+.fluid-concentration > strong { font-size:38px; font-weight:600; color:var(--accent); line-height:1.2; overflow-wrap:anywhere; }
+.fluid-concentration > span:not(.eyebrow),.fluid-concentration p { color:var(--muted); font-size:12px; margin:0; }
+.fluid-bottom { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-top:12px; }
+.fluid-bottom p { margin:0; }
+.fluid-bottom .button { flex-shrink:0; }
+
+.fluid-progress-context { flex:1; font-size:14px; font-weight:550; color:var(--muted); }
+.fluid-panel.is-disabled .fluid-workspace { filter:grayscale(1); opacity:.55; }
+.fluid-report section { margin-top:22px; }
+.fluid-report h3 { font-size:15px; margin:0 0 9px; }
+.fluid-report p { font-size:12px; }
+.fluid-report .results-table { table-layout:auto; }
+.fluid-report th:first-child { text-align:left; font-weight:500; }
+.fluid-report td { font-size:12px; vertical-align:top; }
+.fluid-report th,.fluid-report td { overflow-wrap:anywhere; }
+.fluid-report td:last-child { font-variant-numeric:tabular-nums; }
+.fluid-material-title { font-weight:650; color:var(--accent); }
+@media(max-width:1000px) { .fluid-chamber-config { grid-template-columns:repeat(2,minmax(0,1fr)); } .fluid-chamber-config > .button { grid-column:2; }  }
+@media(max-width:680px) {   .fluid-tabs .button { flex:1; } .fluid-chamber-grid { grid-template-columns:1fr 1fr; } .fluid-concentration { grid-column:1/-1; }  .fluid-bottom { align-items:stretch; flex-direction:column; } .fluid-workspace { padding:12px; }   }
+@media(max-width:400px) {   .fluid-chamber-grid { gap:8px; } .fluid-side { padding:10px; } .fluid-counter { gap:4px; } }
+
+@media(min-width:800px) and (max-height:800px) {
+
+  .fluid-workspace { padding:12px 16px; }
+  .fluid-side,.fluid-concentration { padding:12px; }
+  .fluid-chamber-grid { margin-top:10px; }
+  .fluid-counter { margin:8px 0; }
+  .fluid-bottom { margin-top:8px; }
+
+}
+
+body[data-mode="fluids"] #summary-dialog[open] { display:flex; flex-direction:column; width:min(760px,calc(100vw - 24px)); }
+body[data-mode="fluids"] #summary-dialog .modal-header,body[data-mode="fluids"] #summary-dialog .modal-footer { flex-shrink:0; }
+body[data-mode="fluids"] #summary-dialog .modal-body { min-height:0; overflow-y:auto; }
+.fluid-report .results-table { table-layout:fixed; }
+.fluid-report .results-table th:first-child { width:28%; }
+.fluid-report .results-table th:nth-child(2) { width:22%; }
+.fluid-report .results-table th:nth-child(3) { width:50%; }
+.fluid-report .results-table th,.fluid-report .results-table td { text-align:left; vertical-align:top; padding:8px 6px; }
+.fluid-report section:nth-of-type(2) .results-table th:first-child { width:60%; }
+.fluid-report section:nth-of-type(2) .results-table th:nth-child(2),.fluid-report section:nth-of-type(2) .results-table th:nth-child(3) { width:20%; }
+.fluid-report section:nth-of-type(2) .results-table td:not(:first-child),.fluid-report section:nth-of-type(2) .results-table th:not(:first-child) { text-align:right; }
+
+@media(min-width:800px) and (max-height:650px) {
+
+  .fluid-workspace { padding:10px 12px; }
+
+  .fluid-bottom { margin-top:6px; }
+  .fluid-bottom .button { min-height:30px; padding-block:5px; }
+}
+
+/* Usa a mesma altura disponível dos outros modos; o conteúdo cresce dentro dela. */
+@media (min-width:800px) {
+  .fluid-panel { min-height:0; display:flex; flex-direction:column; }
+
+  .fluid-workspace { flex:1; min-height:0; display:flex; flex-direction:column; overflow:auto; }
+  .fluid-workspace > .field-help,.fluid-chamber-config,.fluid-bottom { flex-shrink:0; }
+
+  .fluid-chamber-grid { flex:1; min-height:164px; }
+  .fluid-side { min-width:0; display:flex; flex-direction:column; }
+  .fluid-side-title,.fluid-side > .button,.fluid-side > .field-help { flex-shrink:0; }
+  .fluid-counter { flex:1; min-height:38px; }
+  .fluid-bottom { margin-top:12px; }
+}
+@media (min-width:800px) and (max-width:1000px) {
+  .fluid-chamber-config { grid-template-columns:1.15fr 1.1fr .9fr .9fr auto; gap:8px; }
+  .fluid-chamber-config > .button { grid-column:auto; padding-inline:9px; }
+  .fluid-field input,.fluid-field select { padding-inline:7px; }
+}
+@media (min-width:800px) and (max-height:650px) {
+  .fluid-chamber-grid { min-height:142px; }
+
+  .fluid-bottom { margin-top:6px; }
+}
+@media (min-width:800px) {
+  .fluid-counter input { height:36px; padding:0; line-height:1.2; }
+  .fluid-counter .button { height:36px; min-height:36px; padding:0; line-height:1; }
+}
+@media (min-width:800px) and (min-height:651px) and (max-height:800px) {
+  .fluid-chamber-grid { min-height:160px; }
+}
+@media (min-width:800px) and (max-height:650px) {
+  .fluid-panel[data-area="chamber"] .fluid-workspace { padding-block:6px; }
+  .fluid-chamber-config { margin-bottom:4px; }
+  .fluid-chamber-config .fluid-field { gap:4px; line-height:1.2; }
+  .fluid-chamber-config input,.fluid-chamber-config select { min-height:34px; padding-block:6px; }
+  .fluid-panel[data-area="chamber"] .fluid-workspace > .field-help { margin-bottom:4px; font-size:11px; line-height:1.4; }
+  .fluid-panel[data-area="chamber"] .fluid-bottom > .field-help { font-size:11px; line-height:1.4; }
+  .fluid-chamber-grid { margin-top:4px; }
+  .fluid-side,.fluid-concentration { padding:10px; }
+  .fluid-counter { min-height:36px; margin-block:4px; }
+  .fluid-side > .button { min-height:30px; padding-block:5px; }
+  .fluid-side .field-help { margin-top:6px; font-size:10px; line-height:1.2; }
+}
+
+/* O diferencial reutiliza os cartões e o editor dos outros modos. */
+.fluid-material-field { flex-direction:row; align-items:center; gap:7px; }
+
+.fluid-material-field select { width:174px; min-height:36px; padding-block:6px; }
+
+@media (min-width:800px) {
+
+  body[data-mode="fluids"] .section-toolbar { gap:8px; }
+  body[data-mode="fluids"] .toolbar-buttons { gap:6px; }
+  .fluid-material-field select { width:165px; }
+}
+@media (min-width:800px) and (max-height:650px) {
+  .fluid-material-field select { min-height:33px; }
+
+}
+@media (max-width:799px) {
+
+  .fluid-material-field select { width:155px; }
+}
+@media (max-width:540px) {
+  body[data-mode="fluids"] .section-toolbar #count-controls { display:grid; grid-template-columns:minmax(0,1fr) auto auto; }
+  body[data-mode="fluids"] #edit-button { grid-column:1/-1; }
+  .fluid-material-field { gap:4px; }
+
+  .fluid-material-field select { width:100%; min-height:39px; font-size:12px; }
+}
+
+/* Navegação junto às ações, sem ocupar a área dos cartões. */
+.section-tools { display:flex; flex-direction:column; align-items:flex-end; gap:8px; max-width:100%; margin-left:auto; }
+.fluid-tabs { width:max-content; padding:3px; border-radius:10px; }
+.fluid-tabs .button { min-height:30px; padding:5px 11px; }
+.progress-actions .fluid-finish-button { flex:0 0 auto; min-width:max-content; max-width:none; white-space:nowrap; line-height:1.2; }
+.fluid-material-empty { height:100%; min-height:180px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:8px; text-align:center; color:var(--muted); }
+.fluid-material-empty strong { font-size:15px; font-weight:550; }
+.fluid-material-empty p { font-size:12px; margin:0; }
+@media (min-width:1200px), (min-width:800px) and (max-height:650px) {
+  body[data-mode="fluids"] .section-tools { flex-direction:row; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+}
+@media (min-width:800px) and (max-width:1100px) {
+  body[data-mode="fluids"] .progress-panel { gap:12px; }
+  body[data-mode="fluids"] .progress-actions { gap:6px; }
+  body[data-mode="fluids"] .progress-actions .button { padding-inline:10px; font-size:12px; }
+}
+@media (max-width:799px) {
+  .section-tools { width:100%; }
+  body[data-mode="fluids"] .section-tools > .toolbar-buttons { flex-wrap:wrap; justify-content:flex-end; }
+  body[data-mode="fluids"] .progress-actions { align-items:stretch; flex-wrap:wrap; justify-content:flex-end; }
+  body[data-mode="fluids"] .progress-actions .button { min-width:max-content; flex-basis:auto; }
+}
+
+@media (min-width:800px) and (max-width:950px) {
+  .progress-panel:has(.fluid-finish-button:not([hidden])) { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .progress-panel:has(.fluid-finish-button:not([hidden])) .progress-actions { justify-content:flex-end; }
+}
