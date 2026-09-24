@@ -249,7 +249,7 @@ select { border: 1px solid var(--line); background: var(--surface); border-radiu
 .about-body .author-role { color: var(--muted); font-size: 13px; margin-bottom: 22px; }
 .about-body > p { font-size: 13px; }
 .author-socials { display: flex; flex-wrap: wrap; gap: 8px; }
-.author-instagram, .author-linkedin { background: var(--tint); color: var(--accent); border-color: transparent; }
+.author-instagram, .author-linkedin, .author-lattes { background: var(--tint); color: var(--accent); border-color: transparent; }
 .about-body .about-version { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .is-unfocused .app-shell, .is-unfocused .modal { filter: blur(5px); pointer-events: none; user-select: none; }
 .focus-overlay { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: #152a2226; color: var(--ink); }
