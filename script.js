@@ -23,7 +23,7 @@
   const $ = id => document.getElementById(id);
   const cells = new Map();
   const dialogs = [...document.querySelectorAll('dialog')];
-  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true, wallpaper: true, wallpaperAutomatic: true, wallpaperIntensity: 35, wallpaperTone: Wallpaper.period(new Date().getHours()) };
+  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, milestoneSound: true, volume: 35, progressColors: true, progressMilestones: true, wallpaper: true, wallpaperAutomatic: true, wallpaperIntensity: 35, wallpaperTone: Wallpaper.period(new Date().getHours()) };
   const themeChoices = [
     { value: 'light', label: 'Claro' },
     { value: 'system', label: 'Automático' },
@@ -59,6 +59,11 @@
   let lastAction = 'Aguardando a primeira célula';
   let toastTimer;
   let audioContext;
+  let milestoneNotice = null;
+  let milestoneTimer;
+  let milestoneAudioRequest = 0;
+  let milestoneAudioSession = null;
+  const milestoneOscillators = new Set();
   const finishAudio = new Audio('./sounds/finish.mp3');
   finishAudio.preload = 'auto';
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -195,7 +200,7 @@
       const stored = JSON.parse(localStorage.getItem(PREFS_STORAGE) || '{}');
       if (!stored || typeof stored !== 'object') return;
       if (['system', 'light', 'dark'].includes(stored.theme)) preferences.theme = stored.theme;
-      for (const key of ['sound', 'countSound', 'finishSound', 'progressColors', 'wallpaper', 'wallpaperAutomatic']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
+      for (const key of ['sound', 'countSound', 'finishSound', 'milestoneSound', 'progressColors', 'progressMilestones', 'wallpaper', 'wallpaperAutomatic']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
       if (Number.isFinite(stored.volume)) preferences.volume = Math.min(100, Math.max(0, stored.volume));
       if (Number.isFinite(stored.wallpaperIntensity)) preferences.wallpaperIntensity = Math.min(100, Math.max(0, stored.wallpaperIntensity));
       if (Number.isInteger(stored.wallpaperTone) && stored.wallpaperTone >= 0 && stored.wallpaperTone < Wallpaper.PERIODS.length) preferences.wallpaperTone = stored.wallpaperTone;
@@ -427,17 +432,21 @@
     window.CellWallpaperView?.setOptions?.({ automatic: preferences.wallpaperAutomatic, intensity: preferences.wallpaperIntensity, tone: preferences.wallpaperTone });
     window.CellWallpaperView?.setEnabled(preferences.wallpaper);
     $('progress-colors-setting').checked = preferences.progressColors;
+    $('progress-milestones-setting').checked = preferences.progressMilestones;
     $('sound-setting').checked = preferences.sound;
     $('count-sound-setting').checked = preferences.countSound;
     $('finish-sound-setting').checked = preferences.finishSound;
+    $('milestone-sound-setting').checked = preferences.milestoneSound;
     $('count-sound-setting').disabled = !preferences.sound;
     $('finish-sound-setting').disabled = !preferences.sound;
+    $('milestone-sound-setting').disabled = !preferences.sound;
     $('volume-setting').value = preferences.volume;
     $('volume-setting').disabled = !preferences.sound;
     $('volume-label').textContent = `${preferences.volume}%`;
     $('test-sound').disabled = !preferences.sound;
     if (!preferences.sound) { finishAudio.pause(); finishAudio.currentTime = 0; }
     renderProgress();
+    scheduleGrid();
   }
 
   function progressColor(ratio) {
@@ -467,6 +476,7 @@
     const panel = $('progress').closest('.progress-panel');
     panel.classList.toggle('is-disabled', restorePending || materialRequired());
     panel.setAttribute('aria-disabled', String(restorePending || materialRequired()));
+    renderMilestones(total, inactive);
     const options = $('target-options');
     if (options.dataset.mode !== mode) {
       const targets = [...Core.modeInfo(state).targets, null];
@@ -505,6 +515,54 @@
       arc.style.stroke = tone;
       arc.style.opacity = !unset && total ? '1' : '0';
     }
+  }
+
+  function clearMilestoneNotice() {
+    clearTimeout(milestoneTimer);
+    milestoneNotice = null;
+  }
+
+  function sameMilestoneSession(snapshot) {
+    return snapshot && snapshot.mode === mode && snapshot.target === state.target && snapshot.session === state.sessionLabel.shortID;
+  }
+
+  function renderMilestones(total, inactive) {
+    const points = [...Core.milestones(state), state.target];
+    const visible = preferences.progressMilestones && points.length > 1;
+    const segments = $('progress-segments');
+    const labels = $('progress-milestones');
+    const feedback = $('progress-milestone-feedback');
+    const signature = points.join(',');
+    if (segments.dataset.signature !== signature) {
+      let previous = 0;
+      segments.innerHTML = points.map(value => {
+        const weight = value - previous;
+        previous = value;
+        return `<span class="progress-segment" data-value="${value}" style="flex:${weight}"><span class="progress-segment-fill"></span></span>`;
+      }).join('');
+      labels.innerHTML = points.map(value => `<span class="progress-milestone-label" data-value="${value}" style="left:${value / state.target * 100}%" title="${value} células">${gaugeNumber(value)}</span>`).join('');
+      segments.dataset.signature = signature;
+    }
+    const unavailable = inactive || editingLayout || Core.complete(state) || (mode === 'fluids' && fluidView?.tab !== 'differential');
+    if (milestoneNotice && (!visible || unavailable || !sameMilestoneSession(milestoneNotice) || total < milestoneNotice.value)) clearMilestoneNotice();
+    if (!preferences.sound || !preferences.milestoneSound || preferences.volume === 0 || unavailable ||
+        (milestoneAudioSession && (!sameMilestoneSession(milestoneAudioSession) || total < milestoneAudioSession.value))) stopMilestoneSound();
+    $('progress').classList.toggle('is-segmented', visible);
+    segments.hidden = !visible;
+    $('progress-fill').hidden = visible;
+    $('progress-milestone-detail').hidden = !visible;
+    $('progress-milestone-detail').classList.toggle('is-paused', inactive);
+    labels.hidden = !visible || Boolean(milestoneNotice);
+    feedback.hidden = !visible || !milestoneNotice;
+    feedback.textContent = milestoneNotice ? `✓ Marco de ${milestoneNotice.value} células atingido` : '';
+    let previous = 0;
+    for (const segment of segments.querySelectorAll('.progress-segment')) {
+      const value = Number(segment.dataset.value);
+      segment.querySelector('.progress-segment-fill').style.width = `${Math.max(0, Math.min(1, (total - previous) / (value - previous))) * 100}%`;
+      segment.classList.toggle('is-milestone', milestoneNotice?.value === value);
+      previous = value;
+    }
+    for (const label of labels.querySelectorAll('.progress-milestone-label')) label.classList.toggle('is-reached', total >= Number(label.dataset.value));
   }
 
   function gaugeNumber(value) {
@@ -807,6 +865,56 @@
     finishAudio.play().catch(() => { tone(1, true); });
   }
 
+  function stopMilestoneSound() {
+    milestoneAudioRequest++;
+    milestoneAudioSession = null;
+    for (const oscillator of milestoneOscillators) {
+      try { oscillator.stop(); } catch (_) { /* A nota pode já ter terminado. */ }
+    }
+    milestoneOscillators.clear();
+  }
+
+  async function playMilestoneSound(value) {
+    stopMilestoneSound();
+    const request = milestoneAudioRequest;
+    milestoneAudioSession = { value, mode, target: state.target, session: state.sessionLabel.shortID };
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      audioContext ??= new Audio();
+      if (audioContext.state === 'suspended') await audioContext.resume();
+      if (request !== milestoneAudioRequest || !preferences.sound || !preferences.milestoneSound || preferences.volume === 0 || !canCount()) return;
+      for (const [index, frequency] of [659.25, 880].entries()) {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        const start = audioContext.currentTime + index * .105;
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, start);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(preferences.volume / 100 * .16, start + .012);
+        gain.gain.exponentialRampToValueAtTime(.0001, start + .13);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        milestoneOscillators.add(oscillator);
+        oscillator.onended = () => { milestoneOscillators.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
+        oscillator.start(start);
+        oscillator.stop(start + .15);
+      }
+    } catch (_) { /* O aviso visual e a contagem continuam sem áudio. */ }
+  }
+
+  function notifyMilestone(value) {
+    if (preferences.progressMilestones) {
+      clearMilestoneNotice();
+      milestoneNotice = { value, mode, target: state.target, session: state.sessionLabel.shortID };
+      renderProgress();
+      milestoneTimer = setTimeout(() => { clearMilestoneNotice(); renderProgress(); }, 2300);
+    }
+    const sound = preferences.sound && preferences.milestoneSound && preferences.volume > 0;
+    if (sound) playMilestoneSound(value);
+    return sound;
+  }
+
   function notifyCompletion(wasFinished) {
     if (wasFinished || !Core.complete(state)) return false;
     $('completion-dialog-title').textContent = mode === 'fluids' ? 'Diferencial concluído' : 'Contagem concluída';
@@ -826,14 +934,21 @@
       return;
     }
     const wasFinished = Core.complete(state);
+    const previousTotal = Core.total(state);
+    const nextTotal = Core.total(result.state);
+    const milestone = delta > 0 && nextTotal > previousTotal
+      ? Core.milestones(state).find(value => value > Math.max(previousTotal, state.milestonePeak) && value <= nextTotal)
+      : undefined;
     if (!commit(result.state)) return;
     lastKey = key;
     lastAction = describe(result.entry);
     render();
     flash(key, delta);
     if (!notifyCompletion(wasFinished)) {
-      tone(delta);
-      announce(`${lastAction}. Total: ${Core.total(state)} de ${state.target}.`);
+      const milestoneSound = milestone !== undefined && notifyMilestone(milestone);
+      if (!milestoneSound) tone(delta);
+      const milestoneMessage = milestone !== undefined && (preferences.progressMilestones || milestoneSound) ? `Marco de ${milestone} células atingido. ` : '';
+      announce(`${milestoneMessage}${lastAction}. Total: ${Core.total(state)} de ${state.target}.`);
     }
   }
 
@@ -1459,7 +1574,7 @@
     };
     $('theme-select').addEventListener('input', selectTheme);
     $('theme-select').addEventListener('change', selectTheme);
-    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors'], ['wallpaper-setting', 'wallpaper'], ['wallpaper-automatic-setting', 'wallpaperAutomatic']]) {
+    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['milestone-sound-setting', 'milestoneSound'], ['progress-colors-setting', 'progressColors'], ['progress-milestones-setting', 'progressMilestones'], ['wallpaper-setting', 'wallpaper'], ['wallpaper-automatic-setting', 'wallpaperAutomatic']]) {
       $(id).addEventListener('change', event => { preferences[property] = event.target.checked; savePreferences(); });
     }
     const selectWallpaperIntensity = event => {

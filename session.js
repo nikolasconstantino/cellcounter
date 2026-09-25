@@ -62,6 +62,7 @@
     next.createdAt = checked.createdAt;
     next.updatedAt = new Date().toISOString();
     next.timing = checked.timing;
+    next.milestonePeak = checked.milestonePeak;
     const nextLayout = captureFluidLayout(next, { ...preset, fluidPresets: current.fluidPresets });
     return { changed: true, state: next, layout: nextLayout };
   }

@@ -70,6 +70,16 @@
   const hasProgress = state => state.mode === 'fluids' ? Fluids.hasProgress(state.fluid) : allCells(state).some(cell => state.counts[cell.key] > 0);
   const complete = state => state.mode === 'fluids' ? Fluids.differentialComplete(state.fluid, state.target) : total(state) === state.target;
 
+  function milestones(state) {
+    if (!validTarget(state.target)) return [];
+    // Evita multiplicar metas grandes e mantém cada marco em uma célula inteira.
+    const target = state.target;
+    return [...new Set([Math.ceil(target / 4), Math.ceil(target / 2), target - Math.floor(target / 4)])]
+      .filter(value => value > 0 && value < target);
+  }
+
+  const milestonePeak = state => Math.max(validNumber(state.milestonePeak) ? state.milestonePeak : 0, total(state));
+
   function validCustomCells(cells) {
     return Array.isArray(cells) && cells.length <= 37 && new Set(cells.map(cell => cell?.key)).size === cells.length && cells.every(cell =>
       cell && typeof cell.key === 'string' && /^custom_[a-z0-9_-]{1,64}$/.test(cell.key) && typeof cell.name === 'string' &&
@@ -165,7 +175,7 @@
       cellNames: validCellNames(catalog, cellNames) ? { ...cellNames } : {},
       ...visualSettings(validVisual(catalog, visual) ? { ...catalog, ...visual } : catalog),
       counts: Object.fromEntries(allCells(catalog).map(cell => [cell.key, 0])),
-      history: [], paused: false, createdAt: new Date().toISOString(), updatedAt: null,
+      history: [], milestonePeak: 0, paused: false, createdAt: new Date().toISOString(), updatedAt: null,
       timing: { startedAt: null, completedAt: null },
       ...(mode === 'fluids' ? { fluid: Fluids.create(material) } : {})
     });
@@ -180,6 +190,8 @@
 
   function touch(state, changes) {
     const next = syncFluid({ ...state, ...changes, updatedAt: new Date().toISOString() });
+    // Correções e desfazer não tornam um marco já alcançado disponível novamente.
+    next.milestonePeak = Math.max(milestonePeak(state), total(next));
     if (next.timing?.startedAt) next.timing = {
       ...next.timing,
       completedAt: next.mode !== 'fluids' && complete(next)
@@ -388,6 +400,8 @@
       state.counts[cell.key] = raw;
     }
     if (total(state) > state.target) return null;
+    // Campo opcional para migrar sessões anteriores sem avisos retroativos.
+    state.milestonePeak = Math.max(validNumber(data.milestonePeak) ? data.milestonePeak : 0, total(state));
     const validDate = value => typeof value === 'string' && !Number.isNaN(Date.parse(value));
     if (validDate(data.createdAt)) state.createdAt = data.createdAt;
     state.updatedAt = validDate(data.updatedAt) ? data.updatedAt : null;
@@ -512,9 +526,10 @@
     for (const cell of state.customCells || []) if (!incoming.has(cell.key)) incoming.set(cell.key, cell);
     const custom = [...incoming.values()];
     if (!validCatalog(state.mode || 'blood', custom, state.deletedCells || [], fluidMaterial(state))) return state;
-    return syncFluid({ ...state, customCells: copyCustom(custom), counts: {
+    const next = syncFluid({ ...state, customCells: copyCustom(custom), counts: {
       ...Object.fromEntries(custom.map(cell => [cell.key, 0])), ...state.counts
     } });
+    return { ...next, milestonePeak: Math.max(milestonePeak(state), total(next)) };
   }
 
   function removeCell(state, id) {
@@ -552,5 +567,5 @@
     }) };
   }
 
-  return Object.freeze({ CELLS, MARROW_CELLS, MODES, GROUPS, TARGETS, modeInfo, baseCells, allCells, validCatalog, validCustomCells, validCellNames, normalizeName, normalizeColor, validVisual, visualSettings, cellColor, saveGroup, removeGroup, setCellColor, withCustomCells, create, total, hasProgress, complete, change, setTarget, setCustomTarget, undo, updateFluid, restore, sessionDuration, formatDuration, percentage, series, formatPercent, report, csv, shortcut, removeCell, restoreDefaultCells, renameCell });
+  return Object.freeze({ CELLS, MARROW_CELLS, MODES, GROUPS, TARGETS, modeInfo, baseCells, allCells, validCatalog, validCustomCells, validCellNames, normalizeName, normalizeColor, validVisual, visualSettings, cellColor, saveGroup, removeGroup, setCellColor, withCustomCells, create, total, hasProgress, complete, milestones, change, setTarget, setCustomTarget, undo, updateFluid, restore, sessionDuration, formatDuration, percentage, series, formatPercent, report, csv, shortcut, removeCell, restoreDefaultCells, renameCell });
 });

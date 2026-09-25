@@ -122,6 +122,7 @@ h3 { font-size: 15px; font-weight: 650; }
 .score-value { display: flex; align-items: baseline; gap: 9px; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .score-value strong { font-size: 43px; font-weight: 650; letter-spacing: -1.8px; min-width: 1.2ch; }
 .score-value > span { font-size: 19px; font-weight: 400; color: var(--muted); }
+.progress-main { min-width: 0; }
 .progress-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 11px; font-variant-numeric: tabular-nums; }
 .status-pill { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 550; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
@@ -130,6 +131,26 @@ h3 { font-size: 15px; font-weight: 650; }
 .progress-track { height: 13px; background: var(--track); background: color-mix(in srgb,var(--completion-color,var(--accent)) 22%,var(--surface)); border-radius: 10px; overflow: hidden; transition: background-color .3s ease; }
 .progress-track.is-paused { filter: grayscale(1); opacity: .55; }
 #progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: inherit; transition: width .16s ease, background-color .3s ease; }
+.progress-track.is-segmented { background: transparent; overflow: visible; }
+.progress-track.is-segmented > #progress-fill { display: none; }
+#progress-segments { display: none; height: 100%; gap: 4px; }
+.progress-track.is-segmented > #progress-segments { display: flex; }
+.progress-segment { display: block; position: relative; min-width: 0; height: 100%; overflow: hidden; border-radius: 3px; background: var(--track); background: color-mix(in srgb,var(--completion-color,var(--accent)) 22%,var(--surface)); transition: background-color .3s ease; }
+.progress-segment:first-child { border-start-start-radius: 8px; border-end-start-radius: 8px; }
+.progress-segment:last-child { border-start-end-radius: 8px; border-end-end-radius: 8px; }
+.progress-segment-fill { display: block; height: 100%; width: 0; background: var(--completion-color,var(--accent)); transition: width .16s ease, background-color .3s ease; }
+.progress-segment.is-milestone { animation: progress-milestone-pulse .65s ease-out; }
+.progress-milestone-detail { position: relative; height: 20px; color: var(--muted); font-size: 10px; line-height: 20px; font-variant-numeric: tabular-nums; }
+#progress-milestones { position: relative; height: 100%; }
+.progress-milestone-label { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.progress-milestone-label:last-child { transform: translateX(-100%); }
+.progress-milestone-label.is-reached { color: var(--ink); font-weight: 600; }
+#progress-milestone-feedback { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); font-size: 11px; font-weight: 550; }
+.progress-track.is-paused .progress-segment { animation: none; }
+.progress-track.is-paused + .progress-milestone-detail { opacity: .55; }
+.progress-track.is-paused + .progress-milestone-detail .progress-milestone-label,
+.progress-track.is-paused + .progress-milestone-detail #progress-milestone-feedback { color: var(--muted); }
+@keyframes progress-milestone-pulse { 0%,100% { transform: scaleY(1); } 45% { transform: scaleY(1.4); } }
 .progress-actions { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .progress-actions .button { white-space: nowrap; }
 .pause-button { min-width: 100px; }
@@ -737,6 +758,8 @@ input[type="range"] { display: block; width: 100%; accent-color: var(--accent); 
 }
 @media (max-width: 540px) { .header-actions { margin-left: auto; } }
 @media (forced-colors: active) {
+  .progress-segment { background: Canvas; outline: 1px solid GrayText; }
+  .progress-segment-fill { background: CanvasText; forced-color-adjust: none; }
   .cell-card::before { background: Canvas; border-color: ButtonText; }
   .cell-remove { color: ButtonText; border-color: ButtonText; }
   .cell-share-track { background: Canvas; outline: 1px solid GrayText; }

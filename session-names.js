@@ -5,39 +5,77 @@
 })(typeof window !== 'undefined' ? window : this, function () {
   'use strict';
   const adjectives = Object.freeze([
+    // Azuis, água e frio.
     'azure', 'cobalt', 'indigo', 'cerulean', 'sapphire', 'teal',
     'cyan', 'slate', 'steel', 'pewter', 'glacier', 'frost',
     'arctic', 'polar', 'tidal', 'marine', 'aqua', 'mist',
+
+    // Tons quentes e terrosos.
     'amber', 'ochre', 'sienna', 'umber', 'saffron', 'topaz',
     'copper', 'bronze', 'brass', 'ember', 'rust', 'cinnamon',
     'honey', 'wheat', 'sand', 'dune', 'clay', 'terra',
+
+    // Claros, escuros e sombras.
     'ivory', 'pearl', 'linen', 'ashen', 'smoke', 'shadow',
     'onyx', 'ebony', 'raven', 'sable', 'dusk', 'twilight',
     'midnight', 'obsidian', 'graphite', 'carbon', 'basalt', 'flint',
+
+    // Vermelhos, roxos e verdes.
     'crimson', 'scarlet', 'garnet', 'ruby', 'magenta', 'violet',
     'lavender', 'lilac', 'plum', 'mauve', 'rose', 'coral',
     'jade', 'emerald', 'verdant', 'olive', 'fern', 'moss',
+
+    // Luz e intensidade.
     'lucent', 'lambent', 'radiant', 'luminous', 'gleaming', 'shimmer',
     'prismatic', 'iridescent', 'opaline', 'crystalline', 'limpid', 'clear',
     'bright', 'vivid', 'lucid', 'stark', 'pale', 'muted',
+
+    // Texturas, materiais e acabamentos.
     'burnished', 'polished', 'glassy', 'matte', 'velvet', 'satin',
     'marble', 'quartz', 'granite', 'mineral', 'metallic', 'argent',
     'gilded', 'tarnished', 'weathered', 'hewn', 'facet', 'veined',
+
+    // Calma, suavidade e precisão.
     'tranquil', 'serene', 'placid', 'still', 'quiet', 'calm',
     'gentle', 'soft', 'tender', 'mellow', 'supple', 'fluid',
     'steady', 'poised', 'balanced', 'measured', 'precise', 'exact',
+
+    // Agilidade, vigor e presença.
     'keen', 'acute', 'deft', 'agile', 'nimble', 'fleet',
     'swift', 'brisk', 'vital', 'robust', 'hardy', 'stalwart',
     'noble', 'regal', 'stately', 'lofty', 'grand', 'prime',
+
+    // Disposição e qualidades.
     'candid', 'earnest', 'ardent', 'fervent', 'intent', 'rapt',
     'sage', 'astute', 'lucky', 'blithe', 'buoyant', 'spry',
+
+    // Céu, estações e passagem do tempo.
     'dawn', 'aurora', 'vesper', 'eventide', 'nocturne', 'solstice',
     'equinox', 'zephyr', 'boreal', 'austral', 'vernal', 'estival',
     'halcyon', 'transient', 'fleeting', 'enduring', 'perennial', 'timeless',
-    // Vocabulário simples de luz, paisagens, cores e qualidades suaves.
+
+    // Ampliação anterior: luz, paisagens, cores e qualidades suaves.
     'sunny', 'moonlit', 'starlit', 'snowy', 'misty', 'breezy',
     'leafy', 'floral', 'coastal', 'oceanic', 'sandy', 'pastel',
-    'smooth', 'golden', 'silver', 'beige', 'cozy', 'peaceful', 'curious'
+    'smooth', 'golden', 'silver', 'beige', 'cozy', 'peaceful', 'curious',
+
+    // Cores da natureza: verdes.
+    'mint', 'pistachio', 'eucalyptus', 'seafoam',
+
+    // Cores da natureza: azuis e violetas.
+    'turquoise', 'aquamarine', 'periwinkle', 'amethyst',
+
+    // Cores da natureza: rosados e avermelhados.
+    'peach', 'apricot', 'raspberry', 'cherry',
+
+    // Cores da natureza: amarelos e alaranjados.
+    'lemon', 'marigold', 'pumpkin', 'paprika',
+
+    // Cores da natureza: claros e cremosos.
+    'almond', 'vanilla', 'cream', 'oat',
+
+    // Cores da natureza: marrons e terrosos.
+    'cocoa', 'walnut', 'chestnut', 'terracotta'
   ]);
   const nouns = Object.freeze([
     // Paisagens e lugares naturais.
@@ -148,6 +186,7 @@
     'sunny-sun', 'moonlit-moon', 'starlit-star', 'snowy-snow',
     'misty-mist', 'breezy-breeze', 'leafy-leaf', 'floral-flower',
     'coastal-coast', 'oceanic-ocean', 'sandy-sand', 'sandy-sandstone',
+    'raspberry-berry', 'seafoam-sea', 'seafoam-foam',
     // Referência à aparência/idade de pessoas ou duplo sentido sexual.
     'silver-fox', 'golden-rain'
   ]);
