@@ -58,14 +58,13 @@
   let lastKey = null;
   let lastAction = 'Aguardando a primeira célula';
   let toastTimer;
-  let audioContext;
   let milestoneNotice = null;
   let milestoneTimer;
-  let milestoneAudioRequest = 0;
-  let milestoneAudioSession = null;
-  const milestoneOscillators = new Set();
-  const finishAudio = new Audio('./sounds/finish.mp3');
-  finishAudio.preload = 'auto';
+  let milestoneSoundSession = null;
+  const soundEffects = window.CellSoundEffects.create({
+    getPreferences: () => preferences,
+    canPlayMilestone: () => canCount()
+  });
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const darkPreference = window.matchMedia('(prefers-color-scheme: dark)');
   const escapeHTML = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
@@ -302,7 +301,7 @@
 
   function switchMode(nextMode) {
     if (!Object.hasOwn(Core.MODES, nextMode) || nextMode === mode || editingLayout || modalOpen()) { renderModeControl(); return; }
-    editor.cancel(); editor.finishSettling(); finishAudio.pause();
+    editor.cancel(); editor.finishSettling(); soundEffects.stopFinish();
     sessionCache.set(mode, { state, layout, lastStoredRaw, restorePending, restoreError, recoveredExternally,
       dirty, layoutDirty, storageFailed, lastKey, lastAction });
     mode = nextMode;
@@ -382,6 +381,13 @@
     renderPreferences();
   }
 
+  function setAudioPreference(property, enabled) {
+    if (preferences[property] === enabled) return;
+    preferences[property] = enabled;
+    savePreferences();
+    soundEffects.feedback(enabled, { allowMuted: property === 'sound' });
+  }
+
   function announce(text) { $('announcer').textContent = text; }
 
   function toast(text) {
@@ -444,7 +450,7 @@
     $('volume-setting').disabled = !preferences.sound;
     $('volume-label').textContent = `${preferences.volume}%`;
     $('test-sound').disabled = !preferences.sound;
-    if (!preferences.sound) { finishAudio.pause(); finishAudio.currentTime = 0; }
+    soundEffects.syncPreferences();
     renderProgress();
     scheduleGrid();
   }
@@ -545,8 +551,10 @@
     }
     const unavailable = inactive || editingLayout || Core.complete(state) || (mode === 'fluids' && fluidView?.tab !== 'differential');
     if (milestoneNotice && (!visible || unavailable || !sameMilestoneSession(milestoneNotice) || total < milestoneNotice.value)) clearMilestoneNotice();
-    if (!preferences.sound || !preferences.milestoneSound || preferences.volume === 0 || unavailable ||
-        (milestoneAudioSession && (!sameMilestoneSession(milestoneAudioSession) || total < milestoneAudioSession.value))) stopMilestoneSound();
+    if (unavailable || (milestoneSoundSession && (!sameMilestoneSession(milestoneSoundSession) || total < milestoneSoundSession.value))) {
+      milestoneSoundSession = null;
+      soundEffects.stopMilestone();
+    }
     $('progress').classList.toggle('is-segmented', visible);
     segments.hidden = !visible;
     $('progress-fill').hidden = visible;
@@ -831,78 +839,6 @@
     cell.flashAnimation = tile.animate([{ backgroundColor: feedbackColor }, { backgroundColor: getComputedStyle(tile).backgroundColor }], { duration: 160, easing: 'ease-out' });
   }
 
-  async function tone(delta, force = false) {
-    if (!preferences.sound || (!force && !preferences.countSound) || preferences.volume === 0) return;
-    try {
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) return;
-      audioContext ??= new Audio();
-      if (audioContext.state === 'suspended') await audioContext.resume();
-      if (!preferences.sound) return;
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const now = audioContext.currentTime;
-      // Zero identifica a negação: um tom descendente, distinto dos registros.
-      oscillator.type = delta === 0 ? 'triangle' : 'sine';
-      oscillator.frequency.setValueAtTime(delta === 0 ? 240 : delta > 0 ? 900 : 420, now);
-      const duration = delta === 0 ? .16 : delta > 0 ? .045 : .085;
-      if (delta === 0) oscillator.frequency.exponentialRampToValueAtTime(120, now + duration);
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(preferences.volume / 100 * .22, now + .004);
-      gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
-      oscillator.connect(gain);
-      gain.connect(audioContext.destination);
-      oscillator.start(now);
-      oscillator.stop(now + duration + .01);
-      oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
-    } catch (_) { /* A contagem não depende de áudio disponível. */ }
-  }
-
-  function finishSound() {
-    if (!preferences.sound || !preferences.finishSound || preferences.volume === 0) return;
-    finishAudio.volume = preferences.volume / 100;
-    finishAudio.currentTime = 0;
-    finishAudio.play().catch(() => { tone(1, true); });
-  }
-
-  function stopMilestoneSound() {
-    milestoneAudioRequest++;
-    milestoneAudioSession = null;
-    for (const oscillator of milestoneOscillators) {
-      try { oscillator.stop(); } catch (_) { /* A nota pode já ter terminado. */ }
-    }
-    milestoneOscillators.clear();
-  }
-
-  async function playMilestoneSound(value) {
-    stopMilestoneSound();
-    const request = milestoneAudioRequest;
-    milestoneAudioSession = { value, mode, target: state.target, session: state.sessionLabel.shortID };
-    try {
-      const Audio = window.AudioContext || window.webkitAudioContext;
-      if (!Audio) return;
-      audioContext ??= new Audio();
-      if (audioContext.state === 'suspended') await audioContext.resume();
-      if (request !== milestoneAudioRequest || !preferences.sound || !preferences.milestoneSound || preferences.volume === 0 || !canCount()) return;
-      for (const [index, frequency] of [659.25, 880].entries()) {
-        const oscillator = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        const start = audioContext.currentTime + index * .105;
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(frequency, start);
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(preferences.volume / 100 * .16, start + .012);
-        gain.gain.exponentialRampToValueAtTime(.0001, start + .13);
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        milestoneOscillators.add(oscillator);
-        oscillator.onended = () => { milestoneOscillators.delete(oscillator); oscillator.disconnect(); gain.disconnect(); };
-        oscillator.start(start);
-        oscillator.stop(start + .15);
-      }
-    } catch (_) { /* O aviso visual e a contagem continuam sem áudio. */ }
-  }
-
   function notifyMilestone(value) {
     if (preferences.progressMilestones) {
       clearMilestoneNotice();
@@ -910,9 +846,8 @@
       renderProgress();
       milestoneTimer = setTimeout(() => { clearMilestoneNotice(); renderProgress(); }, 2300);
     }
-    const sound = preferences.sound && preferences.milestoneSound && preferences.volume > 0;
-    if (sound) playMilestoneSound(value);
-    return sound;
+    milestoneSoundSession = { value, mode, target: state.target, session: state.sessionLabel.shortID };
+    return soundEffects.milestone();
   }
 
   function notifyCompletion(wasFinished) {
@@ -921,7 +856,7 @@
     $('completion-message').textContent = mode === 'fluids' ? `${state.fluid.differential.closedLowCellularity ? 'O diferencial foi encerrado por baixa celularidade' : 'A meta do diferencial foi atingida'} com ${Core.total(state)} células. A contagem em câmara continua disponível.` : `A meta de ${state.target} células foi atingida. Feche este aviso para consultar o resumo ou corrigir a contagem.`;
     openDialog('completion-dialog');
     $('close-completion').focus();
-    finishSound();
+    soundEffects.finish();
     announce(`Contagem concluída: ${Core.total(state)} células. Resultado disponível.`);
     return true;
   }
@@ -946,7 +881,7 @@
     flash(key, delta);
     if (!notifyCompletion(wasFinished)) {
       const milestoneSound = milestone !== undefined && notifyMilestone(milestone);
-      if (!milestoneSound) tone(delta);
+      if (!milestoneSound) soundEffects.tone(delta);
       const milestoneMessage = milestone !== undefined && (preferences.progressMilestones || milestoneSound) ? `Marco de ${milestone} células atingido. ` : '';
       announce(`${milestoneMessage}${lastAction}. Total: ${Core.total(state)} de ${state.target}.`);
     }
@@ -962,7 +897,7 @@
     render();
     if (result.entry.type === 'count') flash(result.entry.key, -result.entry.delta);
     if (!notifyCompletion(wasFinished)) {
-      if (result.entry.type === 'count') tone(-result.entry.delta);
+      if (result.entry.type === 'count') soundEffects.tone(-result.entry.delta);
       announce(`${lastAction}. Total: ${Core.total(state)}.`);
     }
   }
@@ -1513,7 +1448,7 @@
       recoveredExternally = false;
       lastKey = null;
       lastAction = 'Nova contagem iniciada';
-      finishAudio.pause();
+      soundEffects.stopFinish();
       $('new-dialog').close();
       render();
       announce(`Nova contagem. Meta: ${state.target} células.`);
@@ -1565,7 +1500,7 @@
     for (const [trigger, dialog] of [['session-name-help', 'session-name-dialog'], ['storage-help', 'storage-info-dialog']]) {
       $(trigger).addEventListener('click', event => { event.preventDefault(); openDialog(dialog); });
     }
-    $('sound-button').addEventListener('click', () => { preferences.sound = !preferences.sound; savePreferences(); toast(preferences.sound ? 'Sons ativados' : 'Sons desativados'); });
+    $('sound-button').addEventListener('click', () => { setAudioPreference('sound', !preferences.sound); toast(preferences.sound ? 'Sons ativados' : 'Sons desativados'); });
     const selectTheme = event => {
       const choice = themeChoices.find((theme, index) => String(index) === event.target.value);
       if (!choice || choice.value === preferences.theme) return;
@@ -1574,7 +1509,10 @@
     };
     $('theme-select').addEventListener('input', selectTheme);
     $('theme-select').addEventListener('change', selectTheme);
-    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['milestone-sound-setting', 'milestoneSound'], ['progress-colors-setting', 'progressColors'], ['progress-milestones-setting', 'progressMilestones'], ['wallpaper-setting', 'wallpaper'], ['wallpaper-automatic-setting', 'wallpaperAutomatic']]) {
+    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['milestone-sound-setting', 'milestoneSound']]) {
+      $(id).addEventListener('change', event => { setAudioPreference(property, event.target.checked); });
+    }
+    for (const [id, property] of [['progress-colors-setting', 'progressColors'], ['progress-milestones-setting', 'progressMilestones'], ['wallpaper-setting', 'wallpaper'], ['wallpaper-automatic-setting', 'wallpaperAutomatic']]) {
       $(id).addEventListener('change', event => { preferences[property] = event.target.checked; savePreferences(); });
     }
     const selectWallpaperIntensity = event => {
@@ -1595,7 +1533,7 @@
       $('wallpaper-status').textContent = result.saved ? 'Novo desenho salvo neste navegador.' : 'Novo desenho aplicado, mas não pôde ser salvo neste navegador.';
     });
     $('volume-setting').addEventListener('input', event => { preferences.volume = Number(event.target.value); savePreferences(); });
-    $('test-sound').addEventListener('click', () => { tone(1, true); });
+    $('test-sound').addEventListener('click', () => { soundEffects.tone(1, true); });
     darkPreference.addEventListener('change', renderPreferences);
     document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => { button.closest('dialog').close(); }));
     dialogs.forEach(dialog => {
@@ -1611,7 +1549,7 @@
         // Uma tecla mantida pressionada não repete sons nem fecha o aviso.
         if (event.repeat) {
           if (['Enter', ' '].includes(event.key)) event.preventDefault();
-        } else if (windowFocused && document.visibilityState !== 'hidden') tone(0, true);
+        } else if (windowFocused && document.visibilityState !== 'hidden') soundEffects.tone(0, true);
         return;
       }
       // Enter pressionado em um botão nativo também pode repetir cliques.
@@ -1685,7 +1623,7 @@
       if (!updated.changed || !commit(updated.state)) return;
       lastAction = message;
       render();
-      if (!notifyCompletion(wasFinished)) { if (delta) tone(delta); announce(message); }
+      if (!notifyCompletion(wasFinished)) { if (delta) soundEffects.tone(delta); announce(message); }
     },
     confirm: (title, message, action) => {
       fluidConfirmation = action;
