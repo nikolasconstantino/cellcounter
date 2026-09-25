@@ -8,14 +8,14 @@
   const uint64 = value => BigInt.asUintN(64, BigInt(value));
   const SYMMETRIES = Object.freeze(['vertical', 'horizontal', 'quadrant', 'diagonal']);
   const PERIODS = Object.freeze([
-    { start: 0, length: 6, h: 220, s: 0.10, b: 0.92, darkB: 0.13 },
-    { start: 6, length: 3, h: 10, s: 0.08, b: 0.95, darkB: 0.16 },
-    { start: 9, length: 3, h: 210, s: 0.06, b: 0.97, darkB: 0.15 },
-    { start: 12, length: 3, h: 40, s: 0.04, b: 0.98, darkB: 0.20 },
-    { start: 15, length: 3, h: 35, s: 0.10, b: 0.96, darkB: 0.18 },
-    { start: 18, length: 2, h: 20, s: 0.12, b: 0.94, darkB: 0.16 },
-    { start: 20, length: 2, h: 280, s: 0.08, b: 0.93, darkB: 0.14 },
-    { start: 22, length: 2, h: 225, s: 0.10, b: 0.91, darkB: 0.12 }
+    { label: 'Madrugada', hours: '00h–06h', start: 0, length: 6, h: 220, s: 0.10, b: 0.92, darkB: 0.13 },
+    { label: 'Amanhecer', hours: '06h–09h', start: 6, length: 3, h: 10, s: 0.08, b: 0.95, darkB: 0.16 },
+    { label: 'Manhã', hours: '09h–12h', start: 9, length: 3, h: 210, s: 0.06, b: 0.97, darkB: 0.15 },
+    { label: 'Meio-dia', hours: '12h–15h', start: 12, length: 3, h: 40, s: 0.04, b: 0.98, darkB: 0.20 },
+    { label: 'Tarde', hours: '15h–18h', start: 15, length: 3, h: 35, s: 0.10, b: 0.96, darkB: 0.18 },
+    { label: 'Pôr do sol', hours: '18h–20h', start: 18, length: 2, h: 20, s: 0.12, b: 0.94, darkB: 0.16 },
+    { label: 'Crepúsculo', hours: '20h–22h', start: 20, length: 2, h: 280, s: 0.08, b: 0.93, darkB: 0.14 },
+    { label: 'Noite', hours: '22h–00h', start: 22, length: 2, h: 225, s: 0.10, b: 0.91, darkB: 0.12 }
   ].map(Object.freeze));
 
   // UInt64 wrapping and the 53-bit fraction match SplitMix64 in Swift.
@@ -128,6 +128,19 @@
     return { h, s: current.s + (next.s - current.s) * t, b: fromB + (toB - fromB) * t };
   }
 
+  function periodHSB(index, dark = false) {
+    const anchor = PERIODS[Number.isInteger(index) && index >= 0 && index < PERIODS.length ? index : 0];
+    return { h: anchor.h, s: anchor.s, b: dark ? anchor.darkB : anchor.b };
+  }
+
+  function colorCSS({ h, s, b }) {
+    const chroma = b * s;
+    const x = chroma * (1 - Math.abs((h / 60) % 2 - 1));
+    const offset = b - chroma;
+    const sectors = [[chroma, x, 0], [x, chroma, 0], [0, chroma, x], [0, x, chroma], [x, 0, chroma], [chroma, 0, x]];
+    return `rgb(${sectors[Math.floor(h / 60) % 6].map(value => Math.round((value + offset) * 255)).join(',')})`;
+  }
+
   function glyphHSB(base, dark = false) {
     return {
       h: base.h,
@@ -157,5 +170,5 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" fill="#000"><defs><g id="wallpaper-glyph">${rectangles.join('')}</g></defs>${tiles.join('')}</svg>`;
   }
 
-  return Object.freeze({ splitMix64, period, cells, symmetry, density, tileRotation, baseHSB, glyphHSB, tileSVG });
+  return Object.freeze({ PERIODS, splitMix64, period, cells, symmetry, density, tileRotation, baseHSB, periodHSB, colorCSS, glyphHSB, tileSVG });
 });

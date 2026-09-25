@@ -57,11 +57,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--page); color: var(--ink); font-size: 14px; line-height: 1.5; min-width: 280px; isolation: isolate; }
-.app-wallpaper { display: none; position: fixed; inset: 0; z-index: -1; pointer-events: none; user-select: none; background-color: var(--wallpaper-light-ink); opacity: .105; -webkit-mask-image: var(--wallpaper-mask); mask-image: var(--wallpaper-mask); -webkit-mask-size: 216px 216px; mask-size: 216px 216px; -webkit-mask-repeat: repeat; mask-repeat: repeat; }
+.app-wallpaper, .wallpaper-preview { --wallpaper-base: var(--wallpaper-light-base, var(--page)); --wallpaper-ink: var(--wallpaper-light-ink); --wallpaper-opacity: var(--wallpaper-light-opacity, .105); background-color: var(--wallpaper-base); }
+.app-wallpaper { display: none; position: fixed; inset: 0; z-index: -1; pointer-events: none; user-select: none; }
+.app-wallpaper::before, .wallpaper-preview::before { content: ""; position: absolute; inset: 0; background-color: var(--wallpaper-ink); opacity: var(--wallpaper-opacity); -webkit-mask-image: var(--wallpaper-mask); mask-image: var(--wallpaper-mask); -webkit-mask-size: 216px 216px; mask-size: 216px 216px; -webkit-mask-repeat: repeat; mask-repeat: repeat; }
 .app-wallpaper[data-ready="true"] { display: block; }
-:root[data-theme="dark"] .app-wallpaper { background-color: var(--wallpaper-dark-ink); opacity: .16; }
+:root[data-theme="dark"] :is(.app-wallpaper, .wallpaper-preview) { --wallpaper-base: var(--wallpaper-dark-base, var(--page)); --wallpaper-ink: var(--wallpaper-dark-ink); --wallpaper-opacity: var(--wallpaper-dark-opacity, .16); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .app-wallpaper { background-color: var(--wallpaper-dark-ink); opacity: .16; }
+  :root:not([data-theme="light"]) :is(.app-wallpaper, .wallpaper-preview) { --wallpaper-base: var(--wallpaper-dark-base, var(--page)); --wallpaper-ink: var(--wallpaper-dark-ink); --wallpaper-opacity: var(--wallpaper-dark-opacity, .16); }
 }
 @media (forced-colors: active), (prefers-contrast: more), print {
   .app-wallpaper[data-ready="true"] { display: none; }
@@ -328,6 +330,37 @@ textarea { background: var(--page); border: 1px solid var(--line); border-radius
 .setting-row > span { font-size: 14px; font-weight: 550; }
 .setting-row small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; margin-top: 3px; }
 .setting-row select { font-size: 13px; max-width: 145px; }
+.wallpaper-sample-row { display: flex; align-items: center; gap: 14px; margin-top: 8px; }
+.wallpaper-preview { position: relative; flex: 1; height: 66px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
+.wallpaper-sample-row .button { flex-shrink: 0; }
+.volume-setting.wallpaper-intensity { margin-block: 12px 6px; }
+.wallpaper-range-labels { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; }
+.wallpaper-range-labels .text-button { min-height: 24px; font-size: 11px; }
+.wallpaper-range-labels .text-button:disabled { opacity: .45; text-decoration: none; }
+.wallpaper-tones { min-width: 0; border: 0; padding: 0; margin: 12px 0 0; }
+.wallpaper-tones legend { padding: 0; font-size: 13px; font-weight: 550; }
+.wallpaper-tones .field-help { margin-top: 3px; font-size: 11px; }
+.wallpaper-tone-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; margin-top: 9px; }
+.wallpaper-tone { position: relative; min-width: 0; cursor: pointer; }
+.wallpaper-tone input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.wallpaper-tone-card { display: flex; flex-direction: column; gap: 2px; padding: 5px; border: 1px solid var(--line); border-radius: 8px; text-align: center; }
+.wallpaper-tone-swatch { display: block; height: 24px; border-radius: 4px; background: var(--tone-light); box-shadow: inset 0 0 0 1px #0000000a; }
+.wallpaper-tone-name { font-size: 10px; font-weight: 550; white-space: nowrap; }
+.wallpaper-tone-card small { font-size: 9px; color: var(--muted); }
+.wallpaper-tone input:checked + .wallpaper-tone-card { border-color: var(--accent); background: var(--tint); box-shadow: 0 0 0 1px var(--accent); }
+.wallpaper-tone input:focus-visible + .wallpaper-tone-card { outline: 3px solid var(--ring); outline-offset: 3px; }
+:root[data-theme="dark"] .wallpaper-tone-swatch { background: var(--tone-dark); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wallpaper-tone-swatch { background: var(--tone-dark); }
+}
+@media (max-width: 380px) {
+  .wallpaper-tone-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (forced-colors: active) {
+  .wallpaper-tone input:checked + .wallpaper-tone-card { outline: 2px solid Highlight; }
+}
+#wallpaper-status { margin-top: 8px; }
+#wallpaper-status:empty { display: none; }
 .logo-setting-preview { display: grid; grid-template-columns: 74px minmax(0,1fr); column-gap: 14px; row-gap: 8px; align-items: center; padding-block: 7px; }
 .logo-thumbnail { display: grid; place-items: center; grid-row: 1 / 3; width: 74px; height: 74px; border: 1px solid var(--line); border-color: color-mix(in srgb,var(--icon-color,#88b8a7) 17%,var(--line)); border-radius: 20px; background: var(--surface); background: linear-gradient(145deg,var(--surface),color-mix(in srgb,var(--icon-color,#88b8a7) 10%,var(--surface))); box-shadow: 0 3px 8px var(--icon-shadow); }
 .logo-thumbnail img { display: block; width: 64px; height: 64px; object-fit: contain; }

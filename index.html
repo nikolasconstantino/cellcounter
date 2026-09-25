@@ -13,15 +13,15 @@
       if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme;
     } catch (_) {}
   </script>
-  <link rel="stylesheet" href="./style.css?v=2.4.61">
+  <link rel="stylesheet" href="./style.css?v=2.4.63">
   <link rel="stylesheet" href="./color-picker.css?v=2.4.1">
   <link rel="stylesheet" href="./theme-toggle.css?v=2.4.11">
   <link rel="stylesheet" href="./mode-toggle.css?v=2.4.45">
   <link rel="stylesheet" href="./fluids.css?v=2.4.49">
   <link rel="stylesheet" href="./print.css?v=2.4.45">
   <script src="./logo.js?v=2.4.60" defer></script>
-  <script src="./wallpaper.js?v=2.4.28" defer></script>
-  <script src="./wallpaper-view.js?v=2.4.32" defer></script>
+  <script src="./wallpaper.js?v=2.4.62" defer></script>
+  <script src="./wallpaper-view.js?v=2.4.62" defer></script>
   <script src="./session-names.js?v=2.4.46" defer></script>
   <script src="./fluids.js?v=2.4.50" defer></script>
   <script src="./fluid-view.js?v=2.4.47" defer></script>
@@ -31,7 +31,7 @@
   <script src="./editor.js?v=2.4.55" defer></script>
   <script src="./session.js?v=2.4.50" defer></script>
   <script src="./print-summary.js?v=2.4.45" defer></script>
-  <script src="./script.js?v=2.4.61" defer></script>
+  <script src="./script.js?v=2.4.63" defer></script>
 </head>
 <body>
   <div id="app-wallpaper" class="app-wallpaper" aria-hidden="true"></div>
@@ -265,8 +265,21 @@
         <span id="theme-mode-label" class="theme-mode-label" role="status" aria-live="polite">Automático</span>
       </div>
     </div>
-    <label class="setting-row" for="wallpaper-setting"><span>Papel de parede dinâmico<small>Textura suave que acompanha o horário do dia</small></span><input type="checkbox" id="wallpaper-setting" role="switch"></label>
     <label class="setting-row" for="progress-colors-setting"><span>Cor conforme o progresso<small>Vermelho, amarelo, azul e verde até concluir</small></span><input type="checkbox" id="progress-colors-setting" role="switch"></label>
+    </section>
+    <section class="settings-section" aria-labelledby="wallpaper-settings-title">
+      <h3 id="wallpaper-settings-title">Papel de parede</h3>
+      <label class="setting-row" for="wallpaper-setting"><span>Exibir papel de parede<small>Uma textura discreta para o seu espaço</small></span><input type="checkbox" id="wallpaper-setting" role="switch" aria-controls="wallpaper-controls" checked></label>
+      <div id="wallpaper-controls">
+        <div class="wallpaper-sample-row">
+          <div id="wallpaper-preview" class="wallpaper-preview" aria-hidden="true"></div>
+          <button class="button" id="new-wallpaper-button" type="button">Novo desenho</button>
+        </div>
+        <div class="volume-setting wallpaper-intensity"><label for="wallpaper-intensity-setting">Intensidade <output id="wallpaper-intensity-label" for="wallpaper-intensity-setting">35%</output></label><input id="wallpaper-intensity-setting" type="range" min="0" max="100" step="1" value="35"><div class="wallpaper-range-labels"><span aria-hidden="true">Suave</span><button class="text-button" id="reset-wallpaper-intensity" type="button" aria-label="Restaurar intensidade padrão de 35%" disabled>Restaurar padrão</button><span aria-hidden="true">Marcante</span></div></div>
+        <label class="setting-row" for="wallpaper-automatic-setting"><span>Automático<small>Cores e desenho acompanham o horário do dia</small></span><input type="checkbox" id="wallpaper-automatic-setting" role="switch" aria-controls="wallpaper-tones" checked></label>
+        <fieldset id="wallpaper-tones" class="wallpaper-tones" hidden><legend>Tom de cor</legend><p class="field-help">Escolha um dos tons do dia para manter no fundo.</p><div id="wallpaper-tone-options" class="wallpaper-tone-options"></div></fieldset>
+        <p class="field-help" id="wallpaper-status" role="status"></p>
+      </div>
     </section>
     <section class="settings-section" aria-labelledby="logo-settings-title">
       <h3 id="logo-settings-title">Ícone do app</h3>

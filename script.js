@@ -8,6 +8,7 @@
   const PrintSummary = window.CellPrintSummary;
   const Fluids = window.CellFluids;
   const FluidView = window.CellFluidView;
+  const Wallpaper = window.CellWallpaper;
   let fluidView;
   let fluidConfirmation = null;
   const PREVIOUS_STORAGE = 'cellCounterState_v3';
@@ -22,7 +23,7 @@
   const $ = id => document.getElementById(id);
   const cells = new Map();
   const dialogs = [...document.querySelectorAll('dialog')];
-  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true, wallpaper: true };
+  const defaults = { theme: 'system', sound: true, countSound: false, finishSound: true, volume: 35, progressColors: true, wallpaper: true, wallpaperAutomatic: true, wallpaperIntensity: 35, wallpaperTone: Wallpaper.period(new Date().getHours()) };
   const themeChoices = [
     { value: 'light', label: 'Claro' },
     { value: 'system', label: 'Automático' },
@@ -194,8 +195,10 @@
       const stored = JSON.parse(localStorage.getItem(PREFS_STORAGE) || '{}');
       if (!stored || typeof stored !== 'object') return;
       if (['system', 'light', 'dark'].includes(stored.theme)) preferences.theme = stored.theme;
-      for (const key of ['sound', 'countSound', 'finishSound', 'progressColors', 'wallpaper']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
+      for (const key of ['sound', 'countSound', 'finishSound', 'progressColors', 'wallpaper', 'wallpaperAutomatic']) if (typeof stored[key] === 'boolean') preferences[key] = stored[key];
       if (Number.isFinite(stored.volume)) preferences.volume = Math.min(100, Math.max(0, stored.volume));
+      if (Number.isFinite(stored.wallpaperIntensity)) preferences.wallpaperIntensity = Math.min(100, Math.max(0, stored.wallpaperIntensity));
+      if (Number.isInteger(stored.wallpaperTone) && stored.wallpaperTone >= 0 && stored.wallpaperTone < Wallpaper.PERIODS.length) preferences.wallpaperTone = stored.wallpaperTone;
     } catch (_) { /* As preferências padrão continuam disponíveis. */ }
   }
 
@@ -385,6 +388,18 @@
 
   function icon(button, name) { button.querySelector('use').setAttribute('href', `#i-${name}`); }
 
+  function buildWallpaperTones() {
+    $('wallpaper-tone-options').innerHTML = Wallpaper.PERIODS.map((period, index) => `<label class="wallpaper-tone" for="wallpaper-tone-${index}"><input id="wallpaper-tone-${index}" type="radio" name="wallpaper-tone" value="${index}"><span class="wallpaper-tone-card"><span class="wallpaper-tone-swatch" aria-hidden="true" style="--tone-light: ${Wallpaper.colorCSS(Wallpaper.periodHSB(index))}; --tone-dark: ${Wallpaper.colorCSS(Wallpaper.periodHSB(index, true))}"></span><span class="wallpaper-tone-name">${escapeHTML(period.label)}</span><small>${escapeHTML(period.hours)}</small></span></label>`).join('');
+    for (const input of document.querySelectorAll('input[name="wallpaper-tone"]')) {
+      input.addEventListener('change', event => {
+        const tone = Number(event.target.value);
+        if (!event.target.checked || preferences.wallpaperAutomatic || !preferences.wallpaper || !Number.isInteger(tone) || tone < 0 || tone >= Wallpaper.PERIODS.length) return;
+        preferences.wallpaperTone = tone;
+        savePreferences();
+      });
+    }
+  }
+
   function renderPreferences() {
     if (preferences.theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = preferences.theme;
@@ -401,6 +416,15 @@
     $('theme-control').dataset.themeMode = preferences.theme;
     $('theme-mode-label').textContent = themeChoices[themePosition].label;
     $('wallpaper-setting').checked = preferences.wallpaper;
+    $('wallpaper-controls').hidden = !preferences.wallpaper;
+    $('wallpaper-automatic-setting').checked = preferences.wallpaperAutomatic;
+    $('wallpaper-intensity-setting').value = preferences.wallpaperIntensity;
+    $('wallpaper-intensity-label').textContent = `${preferences.wallpaperIntensity}%`;
+    $('wallpaper-intensity-setting').setAttribute('aria-valuetext', `${preferences.wallpaperIntensity}%`);
+    $('reset-wallpaper-intensity').disabled = preferences.wallpaperIntensity === defaults.wallpaperIntensity;
+    $('wallpaper-tones').hidden = preferences.wallpaperAutomatic;
+    for (const input of document.querySelectorAll('input[name="wallpaper-tone"]')) input.checked = Number(input.value) === preferences.wallpaperTone;
+    window.CellWallpaperView?.setOptions?.({ automatic: preferences.wallpaperAutomatic, intensity: preferences.wallpaperIntensity, tone: preferences.wallpaperTone });
     window.CellWallpaperView?.setEnabled(preferences.wallpaper);
     $('progress-colors-setting').checked = preferences.progressColors;
     $('sound-setting').checked = preferences.sound;
@@ -1435,9 +1459,26 @@
     };
     $('theme-select').addEventListener('input', selectTheme);
     $('theme-select').addEventListener('change', selectTheme);
-    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors'], ['wallpaper-setting', 'wallpaper']]) {
+    for (const [id, property] of [['sound-setting', 'sound'], ['count-sound-setting', 'countSound'], ['finish-sound-setting', 'finishSound'], ['progress-colors-setting', 'progressColors'], ['wallpaper-setting', 'wallpaper'], ['wallpaper-automatic-setting', 'wallpaperAutomatic']]) {
       $(id).addEventListener('change', event => { preferences[property] = event.target.checked; savePreferences(); });
     }
+    const selectWallpaperIntensity = event => {
+      const intensity = Number(event.target.value);
+      if (!Number.isFinite(intensity) || intensity === preferences.wallpaperIntensity) return;
+      preferences.wallpaperIntensity = Math.min(100, Math.max(0, intensity));
+      savePreferences();
+    };
+    $('wallpaper-intensity-setting').addEventListener('input', selectWallpaperIntensity);
+    $('wallpaper-intensity-setting').addEventListener('change', selectWallpaperIntensity);
+    $('reset-wallpaper-intensity').addEventListener('click', () => {
+      preferences.wallpaperIntensity = defaults.wallpaperIntensity;
+      savePreferences();
+    });
+    $('new-wallpaper-button').addEventListener('click', () => {
+      const result = window.CellWallpaperView?.regenerate();
+      if (!result) return;
+      $('wallpaper-status').textContent = result.saved ? 'Novo desenho salvo neste navegador.' : 'Novo desenho aplicado, mas não pôde ser salvo neste navegador.';
+    });
     $('volume-setting').addEventListener('input', event => { preferences.volume = Number(event.target.value); savePreferences(); });
     $('test-sound').addEventListener('click', () => { tone(1, true); });
     darkPreference.addEventListener('change', renderPreferences);
@@ -1505,6 +1546,7 @@
     if (Object.hasOwn(Core.MODES, storedMode)) mode = storedMode;
   } catch (_) {}
   loadPreferences();
+  buildWallpaperTones();
   removeLegacyNotes();
   loadSession();
   buildCells();
