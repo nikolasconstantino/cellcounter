@@ -615,14 +615,150 @@
     return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * amount).toString(16).padStart(2, '0')).join('');
   }
 
+  // Fit the painted geometry, rather than its construction radius. Bounds include
+  // round strokes and clipping; a small guard covers SVG's coordinate rounding.
+  function fit(model) {
+    const fallback = () => ({ scale: 1, x: 50, y: 50,
+      bounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 } });
+    const empty = () => ({ minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    const valid = b => Object.values(b).every(Number.isFinite) && b.minX <= b.maxX && b.minY <= b.maxY;
+    const add = (b, p) => {
+      b.minX = Math.min(b.minX, p[0]); b.maxX = Math.max(b.maxX, p[0]);
+      b.minY = Math.min(b.minY, p[1]); b.maxY = Math.max(b.maxY, p[1]);
+    };
+    const numeric = value => {
+      if (!Number.isFinite(value)) throw new TypeError('Invalid geometry.');
+      return value;
+    };
+    const inflate = (b, radius) => ({ minX: b.minX - radius, minY: b.minY - radius,
+      maxX: b.maxX + radius, maxY: b.maxY + radius });
+    const roots = (a, b, c) => {
+      const epsilon = 1e-12 * Math.max(1, Math.abs(a), Math.abs(b), Math.abs(c));
+      if (Math.abs(a) <= epsilon) return Math.abs(b) <= epsilon ? [] : [-c / b];
+      const discriminant = b * b - 4 * a * c;
+      if (discriminant < 0) return [];
+      if (!discriminant) return [-b / (2 * a)];
+      // This form avoids subtracting nearly equal values for a small root.
+      const q = -0.5 * (b + (b < 0 ? -1 : 1) * Math.sqrt(discriminant));
+      return [q / a, c / q];
+    };
+    const primitiveBounds = (shape, transform) => {
+      const b = empty(), { x, y, c, s } = transform;
+      const point = (px, py) => [x + numeric(px) * c - numeric(py) * s,
+        y + px * s + py * c];
+      if (shape.type === 'ellipse') {
+        const rx = numeric(shape.rx), ry = numeric(shape.ry);
+        if (rx <= 0 || ry <= 0) throw new TypeError('Empty ellipse.');
+        const ex = Math.hypot(rx * c, ry * s), ey = Math.hypot(rx * s, ry * c);
+        return { minX: x - ex, minY: y - ey, maxX: x + ex, maxY: y + ey };
+      }
+      if (shape.type === 'polygon') {
+        if (!Array.isArray(shape.points) || shape.points.length < 3) throw new TypeError('Empty polygon.');
+        // Rounded corners stay inside the convex hull of their original vertices.
+        for (const p of shape.points) {
+          if (!Array.isArray(p) || p.length !== 2) throw new TypeError('Invalid polygon.');
+          add(b, point(...p));
+        }
+      } else if (shape.type === 'sector') {
+        const inner = numeric(shape.inner), outer = numeric(shape.outer);
+        const start = numeric(shape.start), end = numeric(shape.end), tau = 2 * Math.PI;
+        if (inner < 0 || outer <= inner || end <= start || end - start >= tau) throw new TypeError('Invalid sector.');
+        const angle = Math.atan2(s, c), a = start + angle, z = end + angle;
+        const polar = (r, t) => [x + r * Math.cos(t), y + r * Math.sin(t)];
+        for (const r of [inner, outer]) {
+          add(b, polar(r, a)); add(b, polar(r, z));
+          for (let axis = 0; axis < 4; axis++) {
+            const t = axis * Math.PI / 2;
+            const candidate = t + Math.ceil((a - t) / tau) * tau;
+            if (candidate <= z) add(b, polar(r, candidate));
+          }
+        }
+      } else if (shape.type === 'path') {
+        if (!Array.isArray(shape.commands)) throw new TypeError('Invalid path.');
+        const lengths = { M: 2, L: 2, Q: 4, C: 6, Z: 0 };
+        let current = null, start = null;
+        for (const command of shape.commands) {
+          if (!Array.isArray(command)) throw new TypeError('Invalid command.');
+          const [op, ...values] = command;
+          if (!Object.hasOwn(lengths, op) || values.length !== lengths[op]) throw new TypeError('Invalid command.');
+          const points = [];
+          for (let i = 0; i < values.length; i += 2) points.push(point(values[i], values[i + 1]));
+          if (op === 'M') { current = points[0]; start = current; continue; }
+          if (!current) throw new TypeError('Missing path start.');
+          if (op === 'Z') { add(b, current); add(b, start); current = start; continue; }
+          const last = points[points.length - 1];
+          add(b, current); add(b, last);
+          if (op === 'Q' || op === 'C') {
+            const ps = [current, ...points], candidates = [];
+            for (let axis = 0; axis < 2; axis++) {
+              const p = ps.map(v => v[axis]);
+              if (op === 'Q') {
+                const denominator = p[0] - 2 * p[1] + p[2];
+                if (denominator) candidates.push((p[0] - p[1]) / denominator);
+              } else {
+                candidates.push(...roots(-p[0] + 3 * p[1] - 3 * p[2] + p[3],
+                  2 * (p[0] - 2 * p[1] + p[2]), p[1] - p[0]));
+              }
+            }
+            for (const t of candidates) {
+              if (!(t > 0 && t < 1)) continue;
+              const u = 1 - t;
+              add(b, [0, 1].map(axis => op === 'Q'
+                ? u * u * ps[0][axis] + 2 * u * t * ps[1][axis] + t * t * ps[2][axis]
+                : u * u * u * ps[0][axis] + 3 * u * u * t * ps[1][axis]
+                  + 3 * u * t * t * ps[2][axis] + t * t * t * ps[3][axis]));
+            }
+          }
+          current = last;
+        }
+      } else throw new TypeError('Unknown primitive.');
+      return b;
+    };
+
+    try {
+      if (!model || !Array.isArray(model.elements) || !model.elements.length) return fallback();
+      const all = empty();
+      for (const element of model.elements) {
+        const angle = numeric(element.angle ?? 0), x = numeric(element.x ?? 0), y = numeric(element.y ?? 0);
+        const transform = { x, y, c: Math.cos(angle), s: Math.sin(angle) };
+        let b = primitiveBounds(element, transform);
+        if (!valid(b) || (b.minX === b.maxX && b.minY === b.maxY)) continue;
+        const width = element.stroke === false ? 0 : numeric(element.lineWidth || (model.origin === 'app' ? 1.05 : 1.8));
+        if (width < 0) return fallback();
+        b = inflate(b, width / 2);
+        if (element.clip) {
+          const clip = primitiveBounds(element.clip, transform);
+          if (!valid(clip)) return fallback();
+          b = { minX: Math.max(b.minX, clip.minX), minY: Math.max(b.minY, clip.minY),
+            maxX: Math.min(b.maxX, clip.maxX), maxY: Math.min(b.maxY, clip.maxY) };
+        }
+        if (!valid(b)) continue;
+        add(all, [b.minX, b.minY]); add(all, [b.maxX, b.maxY]);
+      }
+      if (!valid(all)) return fallback();
+      const extent = Math.max(all.maxX - all.minX, all.maxY - all.minY);
+      if (!(extent > 0) || !Number.isFinite(extent)) return fallback();
+      const guard = 0.005 + Math.max(Math.abs(all.minX), Math.abs(all.minY),
+        Math.abs(all.maxX), Math.abs(all.maxY)) * 0.00001;
+      const bounds = inflate(all, guard);
+      const size = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+      const scale = Math.min(1.35, 84 / size);
+      const x = 50 - (bounds.minX / 2 + bounds.maxX / 2) * scale;
+      const y = 50 - (bounds.minY / 2 + bounds.maxY / 2) * scale;
+      return scale > 0 && [scale, x, y].every(Number.isFinite)
+        ? { scale, x, y, bounds } : fallback();
+    } catch (_) { return fallback(); }
+  }
+
   function svg(model, options = {}) {
     const source = model || create(0), dark = Boolean(options.dark);
     const colors = Palettes.tones(source.palette, { dark });
+    const layout = fit(source);
     const shape = SHAPES.find(s => s.id === source.shape);
     if (!shape) throw new RangeError('Forma desconhecida.');
     const prefix = 'cell-logo-' + (source.seed >>> 0).toString(36) + '-' + shape.id;
     const definitions = [], gradients = new Map(), clips = new Map();
-    const lineWidth = source.origin === 'app' ? 1.05 : 1.8;
+    const lineWidth = 0.75;
     const body = source.elements.map(element => {
       let clipping = '';
       if (element.clip) {
@@ -642,30 +778,24 @@
         const tone = Math.max(-1, Math.min(1, element.tone || 0));
         let base = dark ? mix(colors.base, colors.light, 0.14) : colors.base;
         if (tone) base = mix(base, tone > 0 ? colors.light : colors.deep, Math.abs(tone));
-        let gx = 0, gy = element.type === 'ellipse' ? element.ry : 24;
-        if (element.type === 'sector') {
-          const middle = (element.start + element.end) / 2;
-          gx = Math.cos(middle) * element.outer;
-          gy = Math.sin(middle) * element.outer;
-        }
-        const light = mix(base, colors.light, 0.4);
-        const coordinates = `x1="${number(-gx)}" y1="${number(-gy)}" x2="${number(gx)}" y2="${number(gy)}"`;
-        const key = coordinates + light + base;
+        const light = mix(base, '#ffffff', dark ? 0.37 : 0.48);
+        const deep = mix(base, colors.deep, dark ? 0.1 : 0.72);
+        const key = light + deep;
         if (!gradients.has(key)) {
           const id = prefix + '-paint-' + gradients.size;
-          definitions.push(`<linearGradient id="${id}" ${coordinates} gradientUnits="userSpaceOnUse"><stop stop-color="${light}"/><stop offset="1" stop-color="${base}"/></linearGradient>`);
+          definitions.push(`<linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%" gradientUnits="objectBoundingBox"><stop stop-color="${light}"/><stop offset="1" stop-color="${deep}"/></linearGradient>`);
           gradients.set(key, id);
         }
         fill = 'url(#' + gradients.get(key) + ')';
       }
-      const opacity = Math.min(1, (element.alpha ?? 0.8) + (dark ? 0.07 : 0));
+      const opacity = Math.min(1, (element.alpha ?? 0.8) + 0.13 + (dark ? 0.07 : 0));
       const stroke = element.stroke === false ? ''
-        : ` stroke="${colors.line}" stroke-opacity="${number(element.ring ? 0.92 : source.origin === 'app' ? 0.66 : 0.86)}" stroke-width="${number(element.lineWidth || lineWidth)}" stroke-linejoin="round" stroke-linecap="round"`;
+        : ` stroke="${colors.line}" stroke-opacity="${number(element.ring ? 0.92 : 0.62)}" stroke-width="${number(element.lineWidth || lineWidth)}" stroke-linejoin="round" stroke-linecap="round"`;
       const transform = `translate(${number(element.x || 0)} ${number(element.y || 0)}) rotate(${number((element.angle || 0) * 180 / Math.PI)})`;
       return `<g transform="${transform}"${clipping}><${drawing.tag} ${drawing.attributes} fill="${fill}" fill-opacity="${number(opacity)}" fill-rule="${rule}"${stroke}/></g>`;
     }).join('');
     return '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">'
-      + '<defs>' + definitions.join('') + '</defs><g transform="translate(50 50)">' + body + '</g></svg>';
+      + '<defs>' + definitions.join('') + `</defs><g transform="translate(${number(layout.x)} ${number(layout.y)}) scale(${number(layout.scale)})">` + body + '</g></svg>';
   }
 
   let currentModel = null;
@@ -721,7 +851,7 @@
     currentModel = create(seed);
     if (fixed || storageError === 'write') persistChoice();
     notice = fixed ? 'Novo ícone salvo para as próximas aberturas.' : 'Novo ícone gerado.';
-    renderCurrent();
+    renderCurrent(true);
     return currentModel;
   }
 
@@ -762,8 +892,9 @@
       ? browser.matchMedia('(prefers-color-scheme: dark)') : null;
     let lastDark = null;
     let lastModel = null;
+    const transitions = new Map();
 
-    function render() {
+    function render(animate = false) {
       const theme = document.documentElement.dataset.theme;
       const dark = theme === 'dark' || (theme !== 'light' && Boolean(scheme && scheme.matches));
       if (dark !== lastDark || currentModel !== lastModel) {
@@ -773,6 +904,23 @@
         if (preview) {
           preview.src = uri;
           preview.alt = 'Ícone atual: ' + currentModel.name;
+        }
+        const reduceMotion = typeof browser.matchMedia === 'function'
+          && browser.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        for (const image of [logo, preview]) {
+          if (!image) continue;
+          image.style?.setProperty('--icon-color', currentModel.palette.hex);
+          if (image === preview) image.parentElement?.style?.setProperty('--icon-color', currentModel.palette.hex);
+          transitions.get(image)?.cancel();
+          transitions.delete(image);
+          if (animate === true && !reduceMotion && typeof image.animate === 'function') {
+            const transition = image.animate([
+              { opacity: 0.35, transform: 'scale(0.93)' },
+              { opacity: 1, transform: 'scale(1)' }
+            ], { duration: 260, easing: 'ease-out' });
+            transitions.set(image, transition);
+            transition.onfinish = () => { if (transitions.get(image) === transition) transitions.delete(image); };
+          }
         }
         lastDark = dark;
         lastModel = currentModel;
@@ -803,5 +951,5 @@
     return currentModel;
   }
 
-  return Object.freeze({ SHAPES, PALETTES, create, svg, start, settings, setFixed, regenerate, current: () => currentModel });
+  return Object.freeze({ SHAPES, PALETTES, create, fit, svg, start, settings, setFixed, regenerate, current: () => currentModel });
 });

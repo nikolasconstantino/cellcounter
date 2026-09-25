@@ -105,6 +105,20 @@
     grid.dataset.detail = detail;
     for (const { tile } of cells.values()) tile.dataset.detail = detail;
     fitCellNames(grid, grid.getBoundingClientRect());
+    fitCellGroups();
+  }
+
+  function fitCellGroups() {
+    // Reavalia com os grupos visíveis para que reapareçam assim que houver espaço.
+    const grouped = [...cells.values()].filter(cell => !cell.groupName.hidden);
+    for (const { tile } of grouped) tile.dataset.hideGroup = 'false';
+    const fits = grouped.map(({ add, top, metrics }) => {
+      const style = getComputedStyle(add);
+      const available = add.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      // Dimensões de layout não variam com a animação de rotação do editor.
+      return top.offsetHeight + metrics.offsetHeight + parseFloat(style.rowGap) <= available;
+    });
+    grouped.forEach(({ tile }, index) => { tile.dataset.hideGroup = String(!fits[index]); });
   }
 
   function fitCellNames(grid, rect) {
@@ -436,8 +450,8 @@
       options.innerHTML = targets.map(target => `<button class="target-option" type="button" data-target="${target ?? ''}"${target === null ? ' data-custom="true"' : ''} aria-pressed="false">
         <span class="target-gauge" aria-hidden="true">
           <svg viewBox="0 0 100 96" focusable="false"><path class="target-arc-track" d="M23.13 74.87 A38 38 0 1 1 76.87 74.87"/><path class="target-arc-fill" d="M23.13 74.87 A38 38 0 1 1 76.87 74.87" pathLength="100"/></svg>
-          <span class="target-count">0</span><span class="target-goal">${target ?? 'Meta'}</span>
-        </span><span class="target-choice-label" aria-hidden="true">Selecionar</span>
+          <span class="target-count"></span><span class="target-goal">${target ?? 'Definir'}</span>
+        </span>
       </button>`).join('');
       options.dataset.mode = mode;
     }
@@ -456,12 +470,12 @@
       button.title = custom ? (unset ? 'Definir meta personalizada' : `Editar meta personalizada de ${target} células`) : target < total ? `Meta atingida. O total atual de ${total} células excede este alvo.` : `Selecionar meta de ${target} células`;
       button.style.setProperty('--completion-color', tone);
       const count = button.querySelector('.target-count');
-      count.textContent = unset ? 'X' : gaugeNumber(total);
+      count.textContent = unset ? '+' : selected ? gaugeNumber(total) : '';
+      count.classList.toggle('is-placeholder', !unset && !selected);
       count.dataset.digits = Math.min(4, String(count.textContent).length);
       const goal = button.querySelector('.target-goal');
-      goal.textContent = unset ? 'Meta' : gaugeNumber(target);
+      goal.textContent = unset ? 'Definir' : gaugeNumber(target);
       goal.dataset.long = String(goal.textContent.length > 6);
-      button.querySelector('.target-choice-label').textContent = custom ? (unset ? 'Definir' : 'Editar') : selected ? 'Selecionada' : 'Selecionar';
       const arc = button.querySelector('.target-arc-fill');
       arc.style.strokeDashoffset = String(100 - progress * 100);
       arc.style.stroke = tone;
@@ -509,7 +523,7 @@
       add.className = 'cell-add';
       add.setAttribute('aria-keyshortcuts', definition.key);
       const label = `<span class="cell-heading${definition.excluded ? ' ery-top-label' : ''}"><span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span><span class="cell-group-name" hidden></span>${definition.excluded ? '<span class="ery-note">Fora do total</span>' : ''}</span>`;
-      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-metrics"><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span><span class="cell-caption" aria-hidden="true">células</span></span><span class="cell-share" aria-hidden="true"><span class="cell-share-track"><span class="cell-share-fill"></span></span><span class="cell-percent">—</span></span><span class="cell-base" aria-hidden="true"></span></span>`;
+      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-metrics"><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span><span class="cell-caption" aria-hidden="true">células</span></span><span class="cell-share" aria-hidden="true"><span class="cell-share-track"><span class="cell-share-fill"></span></span><span class="cell-percent">—</span></span></span>`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'cell-remove';
@@ -540,7 +554,7 @@
       tile.append(add, remove, keyEdit, deleteButton);
       slot.append(tile);
       $('cell-grid').append(slot);
-      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, nameLabel: add.querySelector('.cell-name'), groupName: add.querySelector('.cell-group-name'), keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), caption: add.querySelector('.cell-caption'), deltas: add.querySelector('.cell-deltas'), share: add.querySelector('.cell-share'), shareFill: add.querySelector('.cell-share-fill'), percent: add.querySelector('.cell-percent'), base: add.querySelector('.cell-base') };
+      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, nameLabel: add.querySelector('.cell-name'), groupName: add.querySelector('.cell-group-name'), top: add.querySelector('.cell-top'), metrics: add.querySelector('.cell-metrics'), keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), caption: add.querySelector('.cell-caption'), deltas: add.querySelector('.cell-deltas'), share: add.querySelector('.cell-share'), shareFill: add.querySelector('.cell-share-fill'), percent: add.querySelector('.cell-percent') };
       cells.set(definition.key, meta);
       bindCellInput(meta);
     }
@@ -637,10 +651,8 @@
       const share = !cell.excluded && n > 0 ? value / n * 100 : null;
       const percent = share === null ? '—' : `${Core.formatPercent(share)}%`;
       cell.share.hidden = cell.excluded === true;
-      cell.base.hidden = cell.excluded === true;
       cell.shareFill.style.width = `${share === null ? 0 : Math.min(100, Math.max(0, share))}%`;
       cell.percent.textContent = percent;
-      cell.base.textContent = `de ${totalDescription}`;
       const groupDescription = groupName ? ` Grupo: ${groupName}.` : '';
       const shareDescription = cell.excluded ? 'Fora do total.' : n > 0 ? `${percent} do total de ${totalDescription}.` : 'Percentual indisponível: nenhuma célula incluída contada.';
       const assigned = layout.bindings[cell.key];
