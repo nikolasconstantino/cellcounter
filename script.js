@@ -101,6 +101,9 @@
     grid.style.setProperty('--layout-cell-height', `${spec.cellHeight}px`);
     grid.style.setProperty('--layout-height', `${spec.gridHeight}px`);
     grid.dataset.density = spec.micro ? 'micro' : spec.tight ? 'tight' : spec.dense ? 'dense' : 'normal';
+    const detail = spec.cellHeight < 66 ? 'minimal' : spec.cellHeight < 148 || spec.cellWidth < 156 ? 'compact' : 'full';
+    grid.dataset.detail = detail;
+    for (const { tile } of cells.values()) tile.dataset.detail = detail;
     fitCellNames(grid, grid.getBoundingClientRect());
   }
 
@@ -112,7 +115,7 @@
     const labels = [...cells.values()].map(({ nameLabel }) => ({
       nameLabel, available: nameLabel.clientWidth - 1
     }));
-    const signature = [window.innerWidth, window.innerHeight, rect.width, rect.height, grid.dataset.density,
+    const signature = [window.innerWidth, window.innerHeight, rect.width, rect.height, grid.dataset.density, grid.dataset.detail,
       editingLayout, preferred, cells.size, ...labels.map(label => label.available)].join('|');
     if (signature === nameFitSignature) return;
     let size = preferred;
@@ -141,11 +144,19 @@
     }
     // A faixa permanece no mesmo lugar; os números se ajustam à área do corpo.
     {
-      const sizes = [Infinity, Infinity, Infinity, Infinity];
+      // Precompute every supported integer length so counting never changes the name fit.
+      const sizes = Array(16).fill(Infinity);
       for (const { value } of cells.values()) {
         const style = getComputedStyle(value);
         const base = parseFloat(style.fontSize) || 29;
-        const available = value.clientWidth - (parseFloat(style.paddingRight) || 0) - 2;
+        const caption = value.querySelector('.cell-caption');
+        const captionStyle = caption && getComputedStyle(caption);
+        let unitWidth = 0;
+        if (captionStyle?.display && captionStyle.display !== 'none') {
+          nameMeasureContext.font = `${captionStyle.fontWeight} ${captionStyle.fontSize} ${captionStyle.fontFamily}`;
+          unitWidth = nameMeasureContext.measureText('células').width + (parseFloat(style.columnGap) || 6);
+        }
+        const available = value.clientWidth - unitWidth - (parseFloat(style.paddingRight) || 0) - 2;
         if (available <= 0) continue;
         nameMeasureContext.font = `${style.fontWeight} ${base}px ${style.fontFamily}`;
         sizes.forEach((size, index) => {
@@ -497,10 +508,8 @@
       add.type = 'button';
       add.className = 'cell-add';
       add.setAttribute('aria-keyshortcuts', definition.key);
-      const label = definition.excluded
-        ? `<span class="ery-top-label"><span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span><span class="ery-note">Fora do total</span></span>`
-        : `<span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span>`;
-      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span><span class="cell-caption" aria-hidden="true">células contadas</span></span>`;
+      const label = `<span class="cell-heading${definition.excluded ? ' ery-top-label' : ''}"><span class="cell-name">${escapeHTML(definition.shortName || definition.name)}</span><span class="cell-group-name" hidden></span>${definition.excluded ? '<span class="ery-note">Fora do total</span>' : ''}</span>`;
+      add.innerHTML = `<span class="cell-top">${label}<kbd class="cell-key" aria-hidden="true"></kbd></span><span class="cell-metrics"><span class="cell-value is-zero"><span class="cell-number-wrap"><span class="cell-number">0</span><span class="cell-deltas" aria-hidden="true"></span></span><span class="cell-caption" aria-hidden="true">células</span></span><span class="cell-share" aria-hidden="true"><span class="cell-share-track"><span class="cell-share-fill"></span></span><span class="cell-percent">—</span></span><span class="cell-base" aria-hidden="true"></span></span>`;
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'cell-remove';
@@ -531,7 +540,7 @@
       tile.append(add, remove, keyEdit, deleteButton);
       slot.append(tile);
       $('cell-grid').append(slot);
-      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, nameLabel: add.querySelector('.cell-name'), keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), deltas: add.querySelector('.cell-deltas') };
+      const meta = { ...definition, slot, tile, add, remove, keyEdit, keyEditLabel, deleteButton, nameLabel: add.querySelector('.cell-name'), groupName: add.querySelector('.cell-group-name'), keyBadge: add.querySelector('.cell-key'), value: add.querySelector('.cell-value'), number: add.querySelector('.cell-number'), caption: add.querySelector('.cell-caption'), deltas: add.querySelector('.cell-deltas'), share: add.querySelector('.cell-share'), shareFill: add.querySelector('.cell-share-fill'), percent: add.querySelector('.cell-percent'), base: add.querySelector('.cell-base') };
       cells.set(definition.key, meta);
       bindCellInput(meta);
     }
@@ -607,6 +616,9 @@
     }
     $('counting').classList.toggle('is-paused', blocked && !editingLayout);
     $('last-action').textContent = lastAction;
+    const groupNames = new Map();
+    for (const group of state.cellGroups || []) for (const id of group.cellIds) groupNames.set(id, group.name);
+    const totalDescription = `${n} ${n === 1 ? 'célula contada' : 'células contadas'}`;
     for (const cell of cells.values()) {
       const color = Core.cellColor(state, cell.key);
       cell.tile.dataset.colored = String(Boolean(color));
@@ -614,11 +626,26 @@
       cell.tile.style.setProperty('--cell-color-ink', color ? bandInk(color) : 'var(--muted)');
       const value = state.counts[cell.key];
       cell.number.textContent = value;
-      cell.value.dataset.digits = Math.min(4, String(value).length);
+      cell.caption.textContent = value === 1 ? 'célula' : 'células';
+      cell.value.dataset.digits = String(value).length;
+      cell.value.style.setProperty('--cell-number-size', `var(--cell-count-size-${String(value).length},1em)`);
       cell.value.classList.toggle('is-zero', value === 0);
+      const groupName = groupNames.get(cell.key) || '';
+      cell.groupName.textContent = groupName;
+      cell.groupName.setAttribute('title', groupName);
+      cell.groupName.hidden = !groupName;
+      const share = !cell.excluded && n > 0 ? value / n * 100 : null;
+      const percent = share === null ? '—' : `${Core.formatPercent(share)}%`;
+      cell.share.hidden = cell.excluded === true;
+      cell.base.hidden = cell.excluded === true;
+      cell.shareFill.style.width = `${share === null ? 0 : Math.min(100, Math.max(0, share))}%`;
+      cell.percent.textContent = percent;
+      cell.base.textContent = `de ${totalDescription}`;
+      const groupDescription = groupName ? ` Grupo: ${groupName}.` : '';
+      const shareDescription = cell.excluded ? 'Fora do total.' : n > 0 ? `${percent} do total de ${totalDescription}.` : 'Percentual indisponível: nenhuma célula incluída contada.';
       const assigned = layout.bindings[cell.key];
       cell.add.disabled = !editingLayout && (blocked || (mode === 'fluids' && state.fluid.differential.closedLowCellularity) || (finished && !cell.excluded));
-      cell.add.setAttribute('aria-label', editingLayout ? `${cell.name}. Segure e arraste para mover, ou use Alt e as setas.` : `Adicionar ${cell.name.toLowerCase()}. Contagem: ${value}. Tecla ${assigned.toUpperCase()}.`);
+      cell.add.setAttribute('aria-label', editingLayout ? `${cell.name}.${groupDescription} Segure e arraste para mover, ou use Alt e as setas.` : `Adicionar ${cell.name.toLowerCase()}. Contagem: ${value}.${groupDescription} ${shareDescription} Tecla ${assigned.toUpperCase()}.`);
       cell.add.setAttribute('aria-keyshortcuts', assigned);
       cell.add.title = `${cell.name}${cell.excluded ? ' · Fora do total global' : ''} · Tecla ${assigned.toUpperCase()}`;
       cell.remove.setAttribute('aria-keyshortcuts', `Shift+${assigned}`);

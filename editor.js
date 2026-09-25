@@ -106,7 +106,7 @@
       const tileStyle = this.win.getComputedStyle(cell.tile);
       for (const property of ['--key-size', '--cell-band-width', '--cell-band-gap', '--cell-padding', '--cell-inset',
         '--cell-control-size', '--cell-count-size', '--cell-caption-display',
-        '--cell-count-size-1', '--cell-count-size-2', '--cell-count-size-3', '--cell-count-size-4']) {
+        ...Array.from({ length: 16 }, (_, i) => `--cell-count-size-${i + 1}`)]) {
         avatar.style.setProperty(property, tileStyle.getPropertyValue(property));
       }
       Object.assign(avatar.style, { width: `${rect.width}px`, height: `${rect.height}px`, left: '0px', top: '0px' });
