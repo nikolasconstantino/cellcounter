@@ -80,7 +80,7 @@
       const base = automatic ? Wallpaper.baseHSB(now, dark) : Wallpaper.periodHSB(tone, dark);
       setStyle(`--wallpaper-${name}-base`, Wallpaper.colorCSS(base));
       setStyle(`--wallpaper-${name}-ink`, Wallpaper.colorCSS(Wallpaper.glyphHSB(base, dark)));
-      // 35% preserva exatamente a intensidade anterior em ambos os temas.
+      // Preserva a curva do controle; o glifo escuro tem contraste próprio e contido.
       setStyle(`--wallpaper-${name}-opacity`, String(Number(((dark ? 0.16 : 0.105) * intensity / 35).toFixed(6))));
     }
     for (const surface of surfaces) surface.dataset.ready = 'true';

@@ -404,7 +404,7 @@
     if (preferences.theme === 'system') delete document.documentElement.dataset.theme;
     else document.documentElement.dataset.theme = preferences.theme;
     const dark = preferences.theme === 'dark' || (preferences.theme === 'system' && darkPreference.matches);
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#121c19' : '#f4f7f6');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#15191f' : '#f4f7f6');
     const soundLabel = preferences.sound ? 'Desativar sons' : 'Ativar sons';
     $('sound-button').setAttribute('aria-label', soundLabel);
     $('sound-button').title = soundLabel;

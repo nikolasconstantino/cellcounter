@@ -8,15 +8,15 @@
   const uint64 = value => BigInt.asUintN(64, BigInt(value));
   const SYMMETRIES = Object.freeze(['vertical', 'horizontal', 'quadrant', 'diagonal']);
   const PERIODS = Object.freeze([
-    { label: 'Madrugada', hours: '00h–06h', start: 0, length: 6, h: 220, s: 0.10, b: 0.92, darkB: 0.13 },
-    { label: 'Amanhecer', hours: '06h–09h', start: 6, length: 3, h: 10, s: 0.08, b: 0.95, darkB: 0.16 },
-    { label: 'Manhã', hours: '09h–12h', start: 9, length: 3, h: 210, s: 0.06, b: 0.97, darkB: 0.15 },
-    { label: 'Meio-dia', hours: '12h–15h', start: 12, length: 3, h: 40, s: 0.04, b: 0.98, darkB: 0.20 },
-    { label: 'Tarde', hours: '15h–18h', start: 15, length: 3, h: 35, s: 0.10, b: 0.96, darkB: 0.18 },
-    { label: 'Pôr do sol', hours: '18h–20h', start: 18, length: 2, h: 20, s: 0.12, b: 0.94, darkB: 0.16 },
-    { label: 'Crepúsculo', hours: '20h–22h', start: 20, length: 2, h: 280, s: 0.08, b: 0.93, darkB: 0.14 },
-    { label: 'Noite', hours: '22h–00h', start: 22, length: 2, h: 225, s: 0.10, b: 0.91, darkB: 0.12 }
-  ].map(Object.freeze));
+    { label: 'Madrugada', hours: '00h–06h', start: 0, length: 6, h: 220, s: 0.10, b: 0.92, darkRGB: [20, 23, 29] },
+    { label: 'Amanhecer', hours: '06h–09h', start: 6, length: 3, h: 10, s: 0.08, b: 0.95, darkRGB: [31, 25, 23] },
+    { label: 'Manhã', hours: '09h–12h', start: 9, length: 3, h: 210, s: 0.06, b: 0.97, darkRGB: [22, 28, 33] },
+    { label: 'Meio-dia', hours: '12h–15h', start: 12, length: 3, h: 40, s: 0.04, b: 0.98, darkRGB: [26, 29, 30] },
+    { label: 'Tarde', hours: '15h–18h', start: 15, length: 3, h: 35, s: 0.10, b: 0.96, darkRGB: [30, 27, 23] },
+    { label: 'Pôr do sol', hours: '18h–20h', start: 18, length: 2, h: 20, s: 0.12, b: 0.94, darkRGB: [33, 24, 20] },
+    { label: 'Crepúsculo', hours: '20h–22h', start: 20, length: 2, h: 280, s: 0.08, b: 0.93, darkRGB: [24, 23, 30] },
+    { label: 'Noite', hours: '22h–00h', start: 22, length: 2, h: 225, s: 0.10, b: 0.91, darkRGB: [19, 22, 28] }
+  ].map(anchor => Object.freeze({ ...anchor, darkRGB: Object.freeze(anchor.darkRGB) })));
 
   // UInt64 wrapping and the 53-bit fraction match SplitMix64 in Swift.
   function splitMix64(seed) {
@@ -117,20 +117,36 @@
     const index = period(hour);
     const current = PERIODS[index], next = PERIODS[(index + 1) % PERIODS.length];
     const t = Math.max(0, Math.min(0.9999, (hour + minute / 60 - current.start) / current.length));
+    // Dark anchors stay close to graphite. Channel interpolation avoids unrelated
+    // violet/green detours around the hue wheel; light retains the native palette.
+    // Rationale and full-day contrast audit: docs/dark-palette-study.md.
+    if (dark) return rgbHSB(current.darkRGB.map((value, channel) => value + (next.darkRGB[channel] - value) * t));
     let delta = next.h - current.h;
     if (delta > 180) delta -= 360;
     else if (delta < -180) delta += 360;
     let h = current.h + delta * t;
     if (h < 0) h += 360;
     else if (h >= 360) h -= 360;
-    const fromB = dark ? current.darkB : current.b;
-    const toB = dark ? next.darkB : next.b;
-    return { h, s: current.s + (next.s - current.s) * t, b: fromB + (toB - fromB) * t };
+    return { h, s: current.s + (next.s - current.s) * t, b: current.b + (next.b - current.b) * t };
   }
 
   function periodHSB(index, dark = false) {
     const anchor = PERIODS[Number.isInteger(index) && index >= 0 && index < PERIODS.length ? index : 0];
-    return { h: anchor.h, s: anchor.s, b: dark ? anchor.darkB : anchor.b };
+    return dark ? rgbHSB(anchor.darkRGB) : { h: anchor.h, s: anchor.s, b: anchor.b };
+  }
+
+  function rgbHSB(rgb) {
+    const [r, g, b] = rgb.map(value => value / 255);
+    const maximum = Math.max(r, g, b), minimum = Math.min(r, g, b);
+    const delta = maximum - minimum;
+    let hue = 0;
+    if (delta) {
+      if (maximum === r) hue = ((g - b) / delta) % 6;
+      else if (maximum === g) hue = (b - r) / delta + 2;
+      else hue = (r - g) / delta + 4;
+      hue = (hue * 60 + 360) % 360;
+    }
+    return { h: hue, s: maximum ? delta / maximum : 0, b: maximum };
   }
 
   function colorCSS({ h, s, b }) {
@@ -144,8 +160,8 @@
   function glyphHSB(base, dark = false) {
     return {
       h: base.h,
-      s: Math.max(0, Math.min(0.30, base.s + 0.17)),
-      b: dark ? Math.min(1, base.b + 0.10) : Math.max(0, base.b - 0.10)
+      s: dark ? base.s : Math.max(0, Math.min(0.30, base.s + 0.17)),
+      b: dark ? Math.min(1, base.b + 0.06) : Math.max(0, base.b - 0.10)
     };
   }
 
